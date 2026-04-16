@@ -1,0 +1,15 @@
+{
+  "name": "autocare-front",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm -w @autocare/web run dev",
+    "dev:mobile": "npm -w @autocare/mobile run start",
+    "build:web": "npm -w @autocare/web run build",
+    "lint": "npm -w @autocare/web run lint"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "AutoCare Mobile",
+    "slug": "autocare-mobile",
+    "version": "1.0.0",
+    "orientation": "default",
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  }
+}

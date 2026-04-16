@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@autocare/shared": ["../../packages/shared/index.js"],
+      "@autocare/shared/*": ["../../packages/shared/*"]
+    }
+  }
+}
