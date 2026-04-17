@@ -24,6 +24,7 @@ import FormField from '../components/FormField';
 import PasswordChecklist from '../components/PasswordChecklist';
 import { colors, radius } from '../theme';
 import {
+  getChangePasswordChecklistState,
   normalizeEmail,
   normalizePhoneNumber,
   validateBirthday,
@@ -480,6 +481,17 @@ const splitFullName = (fullName) => {
   };
 };
 
+const getAccountDisplayName = (account) =>
+  [account?.firstName, account?.lastName].filter(Boolean).join(' ').trim() || 'Guest';
+
+const getAccountFirstName = (account) => account?.firstName?.trim() || 'Guest';
+
+const getAccountInitials = (account) => {
+  const initials = [account?.firstName?.[0], account?.lastName?.[0]].filter(Boolean).join('');
+
+  return initials || 'AC';
+};
+
 function MotionPressable({
   children,
   onPress,
@@ -650,7 +662,7 @@ function ProfileAvatarButton({
   onHoverIn,
   onHoverOut,
 }) {
-  const initials = `${account?.firstName?.[0] || 'J'}${account?.lastName?.[0] || 'D'}`;
+  const initials = getAccountInitials(account);
 
   return (
     <View
@@ -1686,6 +1698,13 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     });
   };
 
+  const securityChecklistState = getChangePasswordChecklistState({
+    currentPassword: securityForm.currentPassword,
+    newPassword: securityForm.newPassword,
+    confirmPassword: securityForm.confirmPassword,
+    savedPassword: account?.password || '',
+  });
+
   const renderScrollableContent = (contentStyle, children) => {
     const flattenedContentStyle = StyleSheet.flatten(contentStyle) || {};
     const adjustedContentStyle = isWeb
@@ -1738,7 +1757,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
               <Image source={{ uri: account.profileImage }} style={styles.profileImage} />
             ) : (
               <Text style={styles.avatarInitials}>
-                {`${account?.firstName?.[0] || ''}${account?.lastName?.[0] || ''}`}
+                {getAccountInitials(account)}
               </Text>
             )}
             <View style={styles.avatarBadge}>
@@ -1748,7 +1767,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
 
           <View style={styles.profileCopy}>
             <Text style={styles.profileName}>
-              {account?.firstName} {account?.lastName}
+              {getAccountDisplayName(account)}
             </Text>
             <Text style={styles.profileSubline}>{account?.email}</Text>
             <Text style={styles.profileSubline}>+63 {account?.phoneNumber?.slice(1, 4)}-{account?.phoneNumber?.slice(4, 7)}-{account?.phoneNumber?.slice(7)}</Text>
@@ -1932,7 +1951,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
             <Image source={{ uri: account.profileImage }} style={styles.largeProfileImage} />
           ) : (
             <Text style={styles.largeAvatarInitials}>
-              {`${account?.firstName?.[0] || ''}${account?.lastName?.[0] || ''}`}
+              {getAccountInitials(account)}
             </Text>
           )}
         </View>
@@ -2110,10 +2129,16 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
         }
       />
 
-      <PasswordChecklist password={securityForm.newPassword} />
+      <PasswordChecklist
+        password={securityForm.newPassword}
+        currentPassword={securityForm.currentPassword}
+        confirmPassword={securityForm.confirmPassword}
+        savedPassword={account?.password || ''}
+        includeSecurityContext
+      />
 
       <PasswordFieldRow
-        label="Confirm New Password"
+        label="Re-enter Password"
         value={securityForm.confirmPassword}
         onChangeText={(value) => handleSecurityFieldChange('confirmPassword', value)}
         placeholder="Re-enter your new password"
@@ -2126,6 +2151,10 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
           }))
         }
       />
+
+      {!securityErrors.confirmPassword && securityChecklistState.confirmPasswordMatches ? (
+        <Text style={styles.securityMatchText}>Passwords match</Text>
+      ) : null}
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleSavePassword}>
         <Text style={styles.primaryButtonText}>Save Password</Text>
@@ -2573,8 +2602,8 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     const currentHour = new Date().getHours();
     const greeting =
       currentHour < 12 ? 'Good morning,' : currentHour < 18 ? 'Good afternoon,' : 'Good evening,';
-    const firstName = account?.firstName || 'Juan';
-    const lastName = account?.lastName || 'dela Cruz';
+    const firstName = getAccountFirstName(account);
+    const displayName = getAccountDisplayName(account);
     const unreadCount = notificationsFeed.filter((item) => item.unread).length;
     const pinnedNotification = notificationsFeed[0] || null;
     const topStatus =
@@ -2686,9 +2715,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
 
       <Text style={styles.homeGreeting}>{greeting}</Text>
       <View style={styles.homeNameRow}>
-        <Text style={styles.homeName}>
-          {firstName} {lastName}
-        </Text>
+        <Text style={styles.homeName}>{displayName}</Text>
         <Text style={styles.homeWave}>👋</Text>
       </View>
 
@@ -2806,6 +2833,10 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
       const visibleTimelineItems = recentServiceHistory.filter((item) =>
         timelineFilter === 'All' ? true : item.type === timelineFilter
       );
+      const latestService = visibleTimelineItems[0];
+      const insightCopy = latestService
+        ? `Based on your recent ${latestService.title.toLowerCase()} and service cadence, AutoCare expects a follow-up inspection window soon. Keeping this timeline verified helps the team recommend the right next visit.`
+        : 'AutoCare keeps this timeline organized so your next recommended service is easier to explain and approve.';
 
       return renderScrollableContent(styles.timelineScrollContent, (
         <>
@@ -2818,6 +2849,19 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
           <MotionPressable style={styles.timelineFilterIconButton} onPress={() => null}>
             <MaterialCommunityIcons name="filter-variant" size={18} color={colors.labelText} />
           </MotionPressable>
+        </View>
+
+        <View style={styles.timelineInsightCard}>
+          <View style={styles.timelineInsightHeader}>
+            <View style={styles.timelineInsightIcon}>
+              <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={colors.primary} />
+            </View>
+            <View style={styles.timelineInsightCopy}>
+              <Text style={styles.timelineInsightEyebrow}>AUTOCARE INSIGHT</Text>
+              <Text style={styles.timelineInsightTitle}>Why this service history matters</Text>
+            </View>
+          </View>
+          <Text style={styles.timelineInsightText}>{insightCopy}</Text>
         </View>
 
         <View style={styles.timelineStatsRow}>
@@ -3862,6 +3906,48 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: 18,
+  },
+  timelineInsightCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceStrong,
+    padding: 16,
+    marginBottom: 16,
+  },
+  timelineInsightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  timelineInsightIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  timelineInsightCopy: {
+    flex: 1,
+  },
+  timelineInsightEyebrow: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    marginBottom: 4,
+  },
+  timelineInsightTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  timelineInsightText: {
+    color: colors.mutedText,
+    fontSize: 14,
+    lineHeight: 21,
   },
   timelineTitle: {
     color: colors.text,
@@ -5767,13 +5853,18 @@ const styles = StyleSheet.create({
   passwordInputWrap: {
     minHeight: 54,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.medium,
+    borderColor: colors.authInputBorder,
+    borderRadius: radius.large,
     paddingLeft: 14,
     paddingRight: 10,
-    backgroundColor: colors.input,
+    backgroundColor: colors.authInput,
     flexDirection: 'row',
     alignItems: 'center',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 2,
   },
   passwordInputWrapError: {
     borderColor: colors.danger,
@@ -5788,6 +5879,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 10,
+    paddingRight: 6,
+    minHeight: 38,
+    borderRadius: 12,
+    backgroundColor: colors.authPanelInset,
   },
   eyeButtonText: {
     color: colors.mutedText,
@@ -5800,6 +5895,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     lineHeight: 18,
+  },
+  securityMatchText: {
+    color: colors.success,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: -6,
+    marginBottom: 12,
   },
   infoBlock: {
     paddingVertical: 18,

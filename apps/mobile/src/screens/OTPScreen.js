@@ -5,7 +5,6 @@ import OtpInputGroup from '../components/OtpInputGroup';
 import ScreenShell from '../components/ScreenShell';
 import { colors, radius } from '../theme';
 
-const RESEND_SECONDS = 17;
 const MAX_ATTEMPTS = 3;
 const TRANSITION_DELAY_MS = 1400;
 
@@ -86,24 +85,11 @@ export default function OTPScreen({ navigation, route, onVerified }) {
   const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [remainingAttempts, setRemainingAttempts] = useState(MAX_ATTEMPTS);
-  const [resendCountdown, setResendCountdown] = useState(RESEND_SECONDS);
   const transitionTimeoutRef = useRef(null);
   const otpPurpose = route.params?.otpPurpose || 'login';
   const screenCopy = getScreenCopy(otpPurpose);
   const isLocked = screenState === 'success' || screenState === 'exhausted';
   const otpStatus = screenState === 'success' ? 'success' : screenState === 'error' || screenState === 'exhausted' ? 'error' : 'idle';
-
-  useEffect(() => {
-    if (resendCountdown <= 0) {
-      return undefined;
-    }
-
-    const countdownTimer = setInterval(() => {
-      setResendCountdown((currentValue) => (currentValue > 0 ? currentValue - 1 : 0));
-    }, 1000);
-
-    return () => clearInterval(countdownTimer);
-  }, [resendCountdown]);
 
   useEffect(
     () => () => {
@@ -199,7 +185,7 @@ export default function OTPScreen({ navigation, route, onVerified }) {
   };
 
   const handleResend = () => {
-    if (resendCountdown > 0 || isLocked) {
+    if (isLocked) {
       return;
     }
 
@@ -208,7 +194,6 @@ export default function OTPScreen({ navigation, route, onVerified }) {
     setFeedbackTitle('');
     setFeedbackMessage('');
     setRemainingAttempts(MAX_ATTEMPTS);
-    setResendCountdown(RESEND_SECONDS);
   };
 
   if (screenState === 'success') {
@@ -251,15 +236,6 @@ export default function OTPScreen({ navigation, route, onVerified }) {
           </Text>
           <Text style={styles.emailText}>{route.params?.email || 'your email address'}</Text>
           <Text style={styles.messageSubtitle}>Check your inbox and spam folder</Text>
-        </View>
-
-        <View style={styles.timerWrap}>
-          <View style={styles.timerRing}>
-            <Text style={styles.timerText}>
-              {String(Math.floor(resendCountdown / 60)).padStart(2, '0')}:
-              {String(resendCountdown % 60).padStart(2, '0')}
-            </Text>
-          </View>
         </View>
 
         <Text style={styles.codeLabel}>{screenCopy.codeLabel}</Text>
@@ -308,13 +284,9 @@ export default function OTPScreen({ navigation, route, onVerified }) {
 
         <View style={styles.resendRow}>
           <Text style={styles.resendHint}>Didn't receive it? </Text>
-          {resendCountdown > 0 ? (
-            <Text style={styles.resendCountdown}>Resend in {resendCountdown}s</Text>
-          ) : (
-            <Text style={styles.resendAction} onPress={handleResend}>
-              Resend now
-            </Text>
-          )}
+          <Text style={styles.resendAction} onPress={handleResend}>
+            Resend now
+          </Text>
         </View>
 
         <AttemptDots remainingAttempts={remainingAttempts} />
@@ -384,25 +356,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.borderSoft,
     marginBottom: 18,
-  },
-  timerWrap: {
-    alignItems: 'center',
-    marginTop: 14,
-    marginBottom: 24,
-  },
-  timerRing: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 5,
-    borderColor: colors.authPanelInset,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timerText: {
-    color: colors.danger,
-    fontSize: 20,
-    fontWeight: '800',
   },
   messageCard: {
     marginHorizontal: 24,
@@ -521,11 +474,6 @@ const styles = StyleSheet.create({
   resendHint: {
     color: colors.mutedText,
     fontSize: 15,
-  },
-  resendCountdown: {
-    color: colors.labelText,
-    fontSize: 15,
-    fontWeight: '700',
   },
   resendAction: {
     color: colors.primary,

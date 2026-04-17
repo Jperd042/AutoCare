@@ -10,13 +10,16 @@ export {
   formatMonthYear,
   cloneDate,
   calculateAge,
+  passwordRequirementItems,
   getPasswordChecks,
+  getChangePasswordChecklistState,
   isPasswordValid,
   validateEmail,
   validatePhoneNumber,
   validateBirthday,
   validatePassword,
   validateLoginForm,
+  validateChangePassword,
 } from './utils/validation.js';
 
 // Theme / Colors
@@ -44,6 +47,7 @@ export {
   SHOPS,
   TECHNICIANS,
   rewardCatalog,
+  loyaltyDeals,
   redemptionLog,
   salesInvoices,
   monthlyRevenue,

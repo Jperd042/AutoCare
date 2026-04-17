@@ -97,4 +97,12 @@ describe('OTPScreen', () => {
     expect(screen.getAllByLabelText(/OTP attempt .* active/)).toHaveLength(2);
     expect(screen.getAllByLabelText(/OTP attempt .* inactive/)).toHaveLength(1);
   });
+
+  test('shows resend now immediately and does not render the countdown timer', () => {
+    const { screen } = renderScreen();
+
+    expect(screen.getByText('Resend now')).toBeTruthy();
+    expect(screen.queryByText('00:17')).toBeNull();
+    expect(screen.queryByText(/Resend in/i)).toBeNull();
+  });
 });

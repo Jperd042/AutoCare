@@ -101,6 +101,42 @@ export const rewardCatalog = [
   { id: 'rw5', name: 'Free Tire Balancing',    pointsRequired: 350, discount: null, type: 'service',  status: 'active'   },
 ]
 
+export const loyaltyDeals = [
+  {
+    id: 'ld1',
+    title: 'Gold PMS Weekender',
+    targetTiers: ['Gold'],
+    discountType: 'percentage',
+    discountValue: 15,
+    code: 'GOLDWEEK',
+    validUntil: '2026-05-31',
+    status: 'active',
+    summary: 'Weekend PMS savings for Gold members across all branches.',
+  },
+  {
+    id: 'ld2',
+    title: 'Silver Brake Care',
+    targetTiers: ['Silver'],
+    discountType: 'percentage',
+    discountValue: 10,
+    code: 'SILVERSTOP',
+    validUntil: '2026-05-15',
+    status: 'active',
+    summary: 'Brake inspection and pad replacement discount for Silver members.',
+  },
+  {
+    id: 'ld3',
+    title: 'Bronze First Detailing',
+    targetTiers: ['Bronze'],
+    discountType: 'fixed',
+    discountValue: 500,
+    code: 'BRONZE500',
+    validUntil: '2026-04-30',
+    status: 'draft',
+    summary: 'Entry-tier detailing incentive for first-time Bronze redeemers.',
+  },
+]
+
 export const redemptionLog = [
   { id: 'rd1', customerId: 'lp1', customerName: 'Juan dela Cruz', rewardId: 'rw1', rewardName: 'Free Oil Change',   pointsUsed: 500, date: '2026-04-01', redeemedBy: 'Admin', status: 'used'    },
   { id: 'rd2', customerId: 'lp2', customerName: 'Maria Santos',   rewardId: 'rw2', rewardName: 'Car Wash Voucher',  pointsUsed: 200, date: '2026-03-28', redeemedBy: 'Staff', status: 'used'    },

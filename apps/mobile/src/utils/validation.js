@@ -12,17 +12,21 @@ export {
   formatMonthYear,
   cloneDate,
   calculateAge,
+  passwordRequirementItems,
   getPasswordChecks,
+  getChangePasswordChecklistState,
   isPasswordValid,
   validateEmail,
   validatePhoneNumber,
   validateBirthday,
   validatePassword,
   validateLoginForm,
+  validateChangePassword,
 } from '@autocare/shared';
 
 // Import validators we need internally for the mobile-only form validators
 import {
+  validateChangePassword,
   validateEmail,
   validatePhoneNumber,
   validatePassword,
@@ -110,25 +114,10 @@ export const validateChangePasswordForm = ({
   newPassword,
   confirmPassword,
   savedPassword,
-}) => {
-  const errors = {};
-
-  if (!currentPassword) {
-    errors.currentPassword = 'Enter your current password.';
-  } else if (currentPassword !== savedPassword) {
-    errors.currentPassword = 'Current password is incorrect.';
-  }
-
-  const passwordError = validatePassword(newPassword);
-  if (passwordError) {
-    errors.newPassword = passwordError;
-  }
-
-  if (!confirmPassword) {
-    errors.confirmPassword = 'Re-enter your new password.';
-  } else if (newPassword !== confirmPassword) {
-    errors.confirmPassword = 'Passwords do not match.';
-  }
-
-  return errors;
-};
+}) =>
+  validateChangePassword({
+    currentPassword,
+    newPassword,
+    confirmPassword,
+    savedPassword,
+  });

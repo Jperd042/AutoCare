@@ -11,29 +11,29 @@ module.exports = {
     extend: {
       colors: {
         // ── Brand (CruisersCrib logo palette) ─────────────────
-        'brand-orange': 'rgb(240 124 0 / <alpha-value>)',   // #f07c00
-        'brand-gold':   'rgb(201 149 26 / <alpha-value>)',  // #c9951a
+        'brand-orange': 'rgb(255 122 0 / <alpha-value>)',
+        'brand-gold': 'rgb(245 184 77 / <alpha-value>)',
         // ── Dark surfaces ─────────────────────────────────────
-        'surface-bg':     '#09090b',   // page
-        'surface-card':   '#111113',   // card
-        'surface-raised': '#18181b',   // elevated (modals, dropdowns)
-        'surface-input':  '#141416',   // input bg
-        'surface-hover':  '#1c1c1f',   // hover state
-        'surface-border': '#27272a',   // border
+        'surface-bg': '#080C16',
+        'surface-card': '#101724',
+        'surface-raised': '#141F31',
+        'surface-input': '#0F1726',
+        'surface-hover': '#162033',
+        'surface-border': '#263247',
         // ── Ink ───────────────────────────────────────────────
-        'ink-primary':   '#f4f4f5',
-        'ink-secondary': '#a1a1aa',
-        'ink-muted':     '#52525b',
-        'ink-dim':       '#3f3f46',
+        'ink-primary': '#F8FAFC',
+        'ink-secondary': '#CBD5E1',
+        'ink-muted': '#94A3B8',
+        'ink-dim': '#64748B',
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        card:         '0 1px 4px rgba(0,0,0,0.7)',
-        'card-md':    '0 4px 20px rgba(0,0,0,0.8)',
-        'glow-orange':'0 0 24px rgba(240,124,0,0.18)',
-        'glow-sm':    '0 0 10px rgba(240,124,0,0.1)',
+        card: '0 18px 40px rgba(0,0,0,0.22)',
+        'card-md': '0 26px 60px rgba(0,0,0,0.32)',
+        'glow-orange': '0 0 28px rgba(255,122,0,0.16)',
+        'glow-sm': '0 10px 24px rgba(255,122,0,0.14)',
       },
       keyframes: {
         'slide-up': {

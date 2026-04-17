@@ -75,7 +75,7 @@ export default function ResetPassword({ navigation, route, onResetPassword }) {
       <PasswordChecklist password={form.newPassword} visible={shouldShowPasswordChecklist} />
 
       <PasswordField
-        label="Confirm New Password"
+        label="Re-enter Password"
         value={form.confirmPassword}
         onChangeText={(value) => handleFieldChange('confirmPassword', value)}
         placeholder="Re-enter your new password"

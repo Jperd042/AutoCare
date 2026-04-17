@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   cardWrap: {
     width: '100%',
-    maxWidth: 520,
+    maxWidth: 540,
     alignSelf: 'center',
     position: 'relative',
     minHeight: '100%',
@@ -201,10 +201,10 @@ const styles = StyleSheet.create({
     borderColor: colors.authShellBorder,
     overflow: 'hidden',
     shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 22 },
-    shadowOpacity: 0.42,
-    shadowRadius: 30,
-    elevation: 14,
+    shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.46,
+    shadowRadius: 36,
+    elevation: 16,
     minHeight: '100%',
   },
   cardCompact: {
@@ -228,9 +228,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   heroBlock: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 18,
+    paddingHorizontal: 26,
+    paddingTop: 12,
+    paddingBottom: 20,
   },
   brandRow: {
     flexDirection: 'row',
@@ -299,8 +299,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.authShellBorder,
   },
   body: {
-    paddingHorizontal: 24,
-    paddingTop: 22,
-    paddingBottom: 22,
+    paddingHorizontal: 26,
+    paddingTop: 24,
+    paddingBottom: 24,
   },
 });

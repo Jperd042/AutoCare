@@ -1,7 +1,7 @@
-import AccountSecurity from '@/screens/AccountSecurity'
+import SettingsWorkspace from '@/screens/SettingsWorkspace'
 
 export const metadata = { title: 'Settings' }
 
 export default function SettingsPage() {
-  return <AccountSecurity />
+  return <SettingsWorkspace />
 }
