@@ -2,8 +2,39 @@ import { appointments as initialAppointments, shopProducts as initialProducts } 
 
 export const LOW_STOCK_THRESHOLD = 5
 
-function cloneProducts() {
-  return initialProducts.map((product) => ({ ...product }))
+function buildCatalogSeed() {
+  const categories = []
+  const categoriesByName = new Map()
+  const now = new Date().toISOString()
+
+  const products = initialProducts.map((product) => {
+    const categoryName = product.category
+    let category = categoriesByName.get(categoryName)
+
+    if (!category) {
+      category = {
+        id: `cat-${categories.length + 1}`,
+        name: categoryName,
+        createdAt: product.createdAt ?? now,
+      }
+      categories.push(category)
+      categoriesByName.set(categoryName, category)
+    }
+
+    return {
+      ...product,
+      categoryId: category.id,
+      sku: product.sku ?? '',
+      description: product.description ?? '',
+      images: [...(product.images ?? [])],
+      status: product.status ?? 'published',
+      createdAt: product.createdAt ?? now,
+      publishedAt:
+        product.publishedAt ?? (product.status === 'published' ? product.createdAt ?? now : null),
+    }
+  })
+
+  return { categories, products }
 }
 
 function cloneAppointments() {
@@ -14,8 +45,11 @@ function cloneAppointments() {
 }
 
 function buildInitialState() {
+  const catalogSeed = buildCatalogSeed()
+
   return {
-    products: cloneProducts(),
+    products: catalogSeed.products,
+    categories: catalogSeed.categories,
     appointments: cloneAppointments(),
     activity: [],
     counters: {
@@ -23,6 +57,8 @@ function buildInitialState() {
       checkout: 1,
       jobOrder: 7,
       activity: 1,
+      category: catalogSeed.categories.length + 1,
+      product: catalogSeed.products.length + 1,
     },
   }
 }
@@ -73,6 +109,14 @@ export function getInventoryProductsSnapshot() {
   return getStore().state.products
 }
 
+export function getCatalogCategoriesSnapshot() {
+  return getStore().state.categories
+}
+
+export function getPublishedCatalogSnapshot() {
+  return getInventoryProductsSnapshot().filter((product) => product.status === 'published')
+}
+
 export function getAppointmentsSnapshot() {
   return getStore().state.appointments
 }
@@ -83,6 +127,163 @@ export function getOperationsActivitySnapshot() {
 
 export function getLowStockProducts(threshold = LOW_STOCK_THRESHOLD) {
   return getInventoryProductsSnapshot().filter((product) => product.stock < threshold)
+}
+
+function normalizeTimestamp(value) {
+  return value ?? new Date().toISOString()
+}
+
+export function sanitizeProductInput(input = {}, { categoryId, categoryName } = {}) {
+  const name = typeof input.name === 'string' ? input.name.trim() : ''
+  const description = typeof input.description === 'string' ? input.description.trim() : ''
+  const images = Array.isArray(input.images)
+    ? input.images.map((image) => String(image).trim()).filter(Boolean)
+    : []
+  const stock = Number(input.stock)
+  const price = Number(input.price)
+  const sku = typeof input.sku === 'string' ? input.sku.trim() : ''
+  const status = input.status ?? 'published'
+  const resolvedCategoryId = categoryId ?? input.categoryId ?? null
+  const resolvedCategoryName = categoryName ?? input.category ?? ''
+
+  if (!name) {
+    throw new Error('Product name is required.')
+  }
+
+  if (!resolvedCategoryId) {
+    throw new Error('Product category is required.')
+  }
+
+  if (!description) {
+    throw new Error('Product description is required.')
+  }
+
+  if (!images.length) {
+    throw new Error('Product images are required.')
+  }
+
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error('Product price must be zero or greater.')
+  }
+
+  if (!Number.isFinite(stock) || stock < 0) {
+    throw new Error('Product stock must be zero or greater.')
+  }
+
+  const createdAt = normalizeTimestamp(input.createdAt)
+  const publishedAt =
+    status === 'published' ? normalizeTimestamp(input.publishedAt ?? createdAt) : input.publishedAt ?? null
+
+  return {
+    name,
+    categoryId: resolvedCategoryId,
+    category: resolvedCategoryName,
+    price,
+    stock,
+    sku,
+    description,
+    images,
+    status,
+    createdAt,
+    publishedAt,
+  }
+}
+
+export function addCatalogCategory(name) {
+  const categoryName = typeof name === 'string' ? name.trim() : ''
+
+  if (!categoryName) {
+    throw new Error('Category name is required.')
+  }
+
+  const store = getStore()
+  const existing = store.state.categories.find(
+    (category) => category.name.toLowerCase() === categoryName.toLowerCase()
+  )
+
+  if (existing) {
+    return existing
+  }
+
+  const category = {
+    id: `cat-${store.state.counters.category}`,
+    name: categoryName,
+    createdAt: new Date().toISOString(),
+  }
+
+  store.state = {
+    ...store.state,
+    counters: {
+      ...store.state.counters,
+      category: store.state.counters.category + 1,
+    },
+    categories: [...store.state.categories, category],
+  }
+
+  return category
+}
+
+export function addCatalogProduct(input) {
+  const store = getStore()
+  const category = store.state.categories.find(
+    (entry) => entry.id === input?.categoryId || entry.name === input?.category
+  )
+
+  if (!category) {
+    throw new Error('Product category does not exist.')
+  }
+
+  const product = sanitizeProductInput(input, {
+    categoryId: category.id,
+    categoryName: category.name,
+  })
+
+  const nextProduct = {
+    id: `p${store.state.counters.product}`,
+    ...product,
+    category: category.name,
+    categoryId: category.id,
+    images: [...product.images],
+  }
+
+  store.state = {
+    ...store.state,
+    counters: {
+      ...store.state.counters,
+      product: store.state.counters.product + 1,
+    },
+    products: [...store.state.products, nextProduct],
+  }
+
+  return nextProduct
+}
+
+export function archiveInventoryProduct(productId) {
+  const store = getStore()
+  let archivedProduct = null
+
+  store.state = {
+    ...store.state,
+    products: store.state.products.map((product) => {
+      if (product.id !== productId) {
+        return product
+      }
+
+      archivedProduct = {
+        ...product,
+        status: 'archived',
+        archivedAt: new Date().toISOString(),
+      }
+
+      return archivedProduct
+    }),
+  }
+
+  if (!archivedProduct) {
+    throw new Error(`Product ${productId} does not exist.`)
+  }
+
+  return archivedProduct
 }
 
 export function checkoutCart({ customerId, items }) {
