@@ -228,7 +228,7 @@ export function addCatalogCategory(name) {
   )
 
   if (existing) {
-    return existing
+    return cloneCategory(existing)
   }
 
   const category = {
@@ -247,7 +247,7 @@ export function addCatalogCategory(name) {
   }
 
   emitChange()
-  return category
+  return cloneCategory(category)
 }
 
 export function addInventoryProduct(input) {
@@ -285,7 +285,7 @@ export function addInventoryProduct(input) {
   }
 
   emitChange()
-  return nextProduct
+  return cloneProduct(nextProduct)
 }
 
 export function archiveInventoryProduct(productId) {
@@ -314,7 +314,7 @@ export function archiveInventoryProduct(productId) {
   }
 
   emitChange()
-  return archivedProduct
+  return cloneProduct(archivedProduct)
 }
 
 export function checkoutCart({ customerId, items }) {
@@ -459,7 +459,7 @@ export function createAppointment({
   })
 
   emitChange()
-  return nextAppointment
+  return cloneAppointment(nextAppointment)
 }
 
 export function convertAppointmentToJobOrder(appointmentId) {
@@ -471,7 +471,7 @@ export function convertAppointmentToJobOrder(appointmentId) {
   }
 
   if (target.jobOrderId) {
-    return target
+    return cloneAppointment(target)
   }
 
   const year = new Date(target.slot).getFullYear()
@@ -508,7 +508,7 @@ export function convertAppointmentToJobOrder(appointmentId) {
   })
 
   emitChange()
-  return convertedAppointment
+  return cloneAppointment(convertedAppointment)
 }
 
 const STAGE_ORDER = ['intake', 'in_repair', 'qc', 'ready']
@@ -544,7 +544,7 @@ export function updateAppointmentStage(appointmentId, stage) {
   })
 
   emitChange()
-  return updated
+  return cloneAppointment(updated)
 }
 
 export function resetOperationsState() {

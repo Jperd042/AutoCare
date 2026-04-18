@@ -181,4 +181,26 @@ describe('operations store', () => {
     expect(shared.getPublishedCatalogProductsSnapshot?.()[0].status).toBe('published')
     expect(shared.getPublishedCatalogProductsSnapshot?.()[0].images).not.toContain('https://example.test/mutated.jpg')
   })
+
+  test('mutating returned category and product objects does not mutate store state', () => {
+    const category = shared.addCatalogCategory?.('Accessories')
+    category.name = 'Mutated Category'
+
+    const created = shared.addInventoryProduct?.({
+      category: 'Accessories',
+      name: 'Safeguard Air Filter',
+      price: 1250,
+      description: 'Replacement filter for cleaner cabin airflow.',
+      images: ['https://mock.autocare.local/shop-products/safeguard-air-filter.jpg'],
+      stock: 6,
+    })
+    created.name = 'Mutated Product'
+    created.images.push('https://example.test/mutated.jpg')
+
+    expect(shared.getCatalogCategoriesSnapshot?.().some((item) => item.name === 'Mutated Category')).toBe(false)
+    expect(shared.getInventoryProductsSnapshot?.().some((item) => item.name === 'Mutated Product')).toBe(false)
+    expect(shared.getInventoryProductsSnapshot?.().find((item) => item.id === created.id)?.images).not.toContain(
+      'https://example.test/mutated.jpg'
+    )
+  })
 })
