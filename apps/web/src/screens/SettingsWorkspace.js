@@ -23,7 +23,7 @@ export default function SettingsWorkspace() {
   const [activeTab, setActiveTab] = useState('profile')
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl">
       <div className="flex flex-wrap gap-2 rounded-2xl border border-surface-border bg-surface-card p-2 w-fit">
         {tabs.map((tab) => {
           const Icon = tab.icon

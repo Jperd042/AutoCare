@@ -1,37 +1,46 @@
 jest.mock('@expo/vector-icons', () => {
   const React = require('react');
-  const { Text } = require('react-native');
 
   return {
-    MaterialCommunityIcons: ({ name, ...props }) => React.createElement(Text, props, name),
+    MaterialCommunityIcons: ({ name, ...props }) =>
+      React.createElement('MaterialCommunityIcon', props, name),
   };
 });
 
 jest.mock('react-native-gesture-handler', () => {
   const React = require('react');
-  const { View } = require('react-native');
+  const createHostComponent = (displayName) => {
+    const MockComponent = ({ children, ...props }) =>
+      React.createElement(displayName, props, children);
+
+    MockComponent.displayName = displayName;
+    return MockComponent;
+  };
+
+  const GestureHandlerRootView = createHostComponent('GestureHandlerRootView');
+  const GestureHandlerView = createHostComponent('GestureHandlerView');
 
   return {
-    GestureHandlerRootView: ({ children }) => React.createElement(View, null, children),
-    Swipeable: View,
-    DrawerLayout: View,
+    GestureHandlerRootView,
+    Swipeable: GestureHandlerView,
+    DrawerLayout: GestureHandlerView,
     State: {},
-    ScrollView: View,
-    Slider: View,
-    Switch: View,
-    TextInput: View,
-    ToolbarAndroid: View,
-    ViewPagerAndroid: View,
-    DrawerLayoutAndroid: View,
-    WebView: View,
-    NativeViewGestureHandler: View,
-    TapGestureHandler: View,
-    FlingGestureHandler: View,
-    ForceTouchGestureHandler: View,
-    LongPressGestureHandler: View,
-    PanGestureHandler: View,
-    PinchGestureHandler: View,
-    RotationGestureHandler: View,
+    ScrollView: GestureHandlerView,
+    Slider: GestureHandlerView,
+    Switch: GestureHandlerView,
+    TextInput: GestureHandlerView,
+    ToolbarAndroid: GestureHandlerView,
+    ViewPagerAndroid: GestureHandlerView,
+    DrawerLayoutAndroid: GestureHandlerView,
+    WebView: GestureHandlerView,
+    NativeViewGestureHandler: GestureHandlerView,
+    TapGestureHandler: GestureHandlerView,
+    FlingGestureHandler: GestureHandlerView,
+    ForceTouchGestureHandler: GestureHandlerView,
+    LongPressGestureHandler: GestureHandlerView,
+    PanGestureHandler: GestureHandlerView,
+    PinchGestureHandler: GestureHandlerView,
+    RotationGestureHandler: GestureHandlerView,
     Directions: {},
   };
 });

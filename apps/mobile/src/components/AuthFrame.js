@@ -14,9 +14,13 @@ export default function AuthFrame({
   cardStyle,
   bodyStyle,
   centerContent = false,
+  headerAlignment = 'left',
+  accentGlowPosition,
+  showAmbientOrbs = true,
 }) {
   const { width } = useWindowDimensions();
   const isCompactLayout = width < 720;
+  const isHeaderCentered = headerAlignment === 'center';
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const cardTranslate = useRef(new Animated.Value(20)).current;
 
@@ -62,10 +66,23 @@ export default function AuthFrame({
         ]}
       >
         <View style={[styles.shellFill, isCompactLayout && styles.shellFillCompact]} />
-        <View style={[styles.orbTopRight, isCompactLayout && styles.orbTopRightCompact]} />
-        <View style={[styles.orbTopLeft, isCompactLayout && styles.orbTopLeftCompact]} />
-        <View style={[styles.orbCenterRight, isCompactLayout && styles.orbCenterRightCompact]} />
-        <View style={[styles.orbBottomLeft, isCompactLayout && styles.orbBottomLeftCompact]} />
+        {accentGlowPosition ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.brandGlowWrap,
+              accentGlowPosition === 'topLeft' ? styles.brandGlowTopLeft : styles.brandGlowTopRight,
+              isCompactLayout && styles.brandGlowWrapCompact,
+            ]}
+          >
+            <View testID="auth-frame-brand-glow" style={styles.brandGlowOuter} />
+            <View style={styles.brandGlowInner} />
+          </View>
+        ) : null}
+        {showAmbientOrbs ? <View style={[styles.orbTopRight, isCompactLayout && styles.orbTopRightCompact]} /> : null}
+        {showAmbientOrbs ? <View style={[styles.orbTopLeft, isCompactLayout && styles.orbTopLeftCompact]} /> : null}
+        {showAmbientOrbs ? <View style={[styles.orbCenterRight, isCompactLayout && styles.orbCenterRightCompact]} /> : null}
+        {showAmbientOrbs ? <View style={[styles.orbBottomLeft, isCompactLayout && styles.orbBottomLeftCompact]} /> : null}
 
         <View style={[styles.card, isCompactLayout && styles.cardCompact, cardStyle]}>
           {backLabel && onBack ? (
@@ -82,23 +99,23 @@ export default function AuthFrame({
             </TouchableOpacity>
           ) : null}
 
-          <View testID="auth-frame-hero" style={styles.heroBlock}>
-            <View style={styles.brandRow}>
-              <View style={styles.brandBadgeWrap}>
+          <View testID="auth-frame-hero" style={[styles.heroBlock, isHeaderCentered && styles.heroBlockCentered]}>
+            <View style={[styles.brandRow, isHeaderCentered && styles.brandRowCentered]}>
+              <View style={[styles.brandBadgeWrap, isHeaderCentered && styles.brandBadgeWrapCentered]}>
                 <View style={styles.brandBadgeGlow} />
                 <View style={styles.brandBadge}>
                   <MaterialCommunityIcons name="wrench-outline" size={22} color={colors.onPrimary} />
                 </View>
               </View>
 
-              <View>
-                <Text style={styles.brandEyebrow}>Cruisers Crib</Text>
-                <Text style={styles.brandTitle}>AUTOCARE</Text>
+              <View style={isHeaderCentered && styles.brandCopyCentered}>
+                <Text style={[styles.brandEyebrow, isHeaderCentered && styles.centeredText]}>Cruisers Crib</Text>
+                <Text style={[styles.brandTitle, isHeaderCentered && styles.centeredText]}>AUTOCARE</Text>
               </View>
             </View>
 
-            <Text style={styles.title}>{title}</Text>
-            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+            <Text style={[styles.title, isHeaderCentered && styles.centeredText]}>{title}</Text>
+            {subtitle ? <Text style={[styles.subtitle, isHeaderCentered && styles.centeredText]}>{subtitle}</Text> : null}
           </View>
 
           <View style={styles.divider} />
@@ -141,6 +158,48 @@ const styles = StyleSheet.create({
   },
   shellFillCompact: {
     borderRadius: 0,
+  },
+  brandGlowWrap: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandGlowWrapCompact: {
+    width: 220,
+    height: 220,
+  },
+  brandGlowTopRight: {
+    top: -64,
+    right: -82,
+  },
+  brandGlowTopLeft: {
+    top: -64,
+    left: -82,
+  },
+  brandGlowOuter: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(255, 122, 0, 0.12)',
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.34,
+    shadowRadius: 64,
+    elevation: 10,
+  },
+  brandGlowInner: {
+    position: 'absolute',
+    width: 138,
+    height: 138,
+    borderRadius: 69,
+    backgroundColor: 'rgba(255, 122, 0, 0.2)',
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.24,
+    shadowRadius: 30,
+    elevation: 8,
   },
   orbTopRight: {
     position: 'absolute',
@@ -232,10 +291,17 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 20,
   },
+  heroBlockCentered: {
+    alignItems: 'center',
+  },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 18,
+  },
+  brandRowCentered: {
+    flexDirection: 'column',
+    justifyContent: 'center',
   },
   brandBadgeWrap: {
     width: 54,
@@ -243,6 +309,13 @@ const styles = StyleSheet.create({
     marginRight: 14,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  brandBadgeWrapCentered: {
+    marginRight: 0,
+    marginBottom: 14,
+  },
+  brandCopyCentered: {
+    alignItems: 'center',
   },
   brandBadgeGlow: {
     position: 'absolute',
@@ -293,6 +366,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 23,
     maxWidth: 420,
+  },
+  centeredText: {
+    textAlign: 'center',
   },
   divider: {
     height: 1,

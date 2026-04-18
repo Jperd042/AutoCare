@@ -4,18 +4,21 @@ import { useState, useRef, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Bell, Search, ChevronDown, Menu, LogOut, X, Car, CalendarCheck, Package, Award } from 'lucide-react'
 import { getVehicles } from '@/lib/vehicleStore'
-import { getAppointments } from '@/lib/appointmentStore'
-import { shopProducts } from '@autocare/shared'
+import { getAppointmentsSnapshot, getInventoryProductsSnapshot } from '@autocare/shared'
 
 const ROUTE_TITLES = {
   '/':          'Dashboard',
   '/vehicles':  'Vehicle Records',
   '/bookings':  'Bookings',
+  '/admin/appointments': 'Appointments Queue',
   '/backjobs':  'Back-Jobs',
   '/timeline':  'Service Timeline',
   '/insurance': 'Insurance Inquiries',
   '/shop':      'Shop & Inventory',
+  '/admin/inventory': 'Inventory Workspace',
   '/loyalty':   'Loyalty Management',
+  '/admin/qa-audit': 'QA Audit Workspace',
+  '/admin/summaries': 'Summary Verification',
   '/settings':  'Settings',
 }
 
@@ -55,18 +58,18 @@ function GlobalSearch() {
     // Search appointments
     const vehicles = getVehicles()
     const vehicleMap = Object.fromEntries(vehicles.map(v => [v.id, v]))
-    getAppointments().forEach(a => {
+    getAppointmentsSnapshot().forEach(a => {
       const v = vehicleMap[a.vehicleId]
       const searchable = [a.jobOrderId, v?.plate, v?.owner, ...a.chosenServices].filter(Boolean).join(' ').toLowerCase()
       if (searchable.includes(q)) {
-        hits.push({ type: 'booking', icon: CalendarCheck, label: `${a.jobOrderId || 'Booking'} — ${v?.plate || ''}`, sub: a.chosenServices.join(', '), href: '/bookings' })
+        hits.push({ type: 'booking', icon: CalendarCheck, label: `${a.jobOrderId || 'Booking'} — ${v?.plate || ''}`, sub: a.chosenServices.join(', '), href: '/admin/appointments' })
       }
     })
 
     // Search products
-    shopProducts.forEach(p => {
+    getInventoryProductsSnapshot().forEach(p => {
       if (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) {
-        hits.push({ type: 'product', icon: Package, label: p.name, sub: `${p.sku} · ₱${p.price.toLocaleString()}`, href: '/shop' })
+        hits.push({ type: 'product', icon: Package, label: p.name, sub: `${p.sku} · ₱${p.price.toLocaleString()}`, href: '/admin/inventory' })
       }
     })
 

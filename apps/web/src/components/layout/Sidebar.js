@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Car, CalendarCheck, ShieldCheck,
-  ShoppingBag, Award, History, ChevronLeft, ChevronRight, Cog, Wrench, Settings,
+  ShoppingBag, Award, History, ChevronLeft, ChevronRight, Cog, Wrench, Settings, BrainCircuit, Sparkles,
 } from 'lucide-react'
 
 const NAV = [
@@ -16,7 +16,7 @@ const NAV = [
     group: 'Operations',
     items: [
       { href: '/vehicles',  label: 'Vehicle Records',  icon: Car },
-      { href: '/bookings',  label: 'Bookings',         icon: CalendarCheck },
+      { href: '/admin/appointments',  label: 'Appointments', icon: CalendarCheck },
       { href: '/backjobs',  label: 'Back-Jobs',        icon: Wrench },
       { href: '/timeline',  label: 'Service Timeline', icon: History },
     ],
@@ -25,13 +25,20 @@ const NAV = [
     group: 'Services',
     items: [
       { href: '/insurance', label: 'Insurance',         icon: ShieldCheck },
-      { href: '/shop',      label: 'Inventory',         icon: ShoppingBag },
+      { href: '/admin/inventory', label: 'Inventory',   icon: ShoppingBag },
     ],
   },
   {
     group: 'Customer',
     items: [
       { href: '/loyalty',   label: 'Loyalty Management', icon: Award },
+    ],
+  },
+  {
+    group: 'AI Operations',
+    items: [
+      { href: '/admin/qa-audit', label: 'QA Audit', icon: BrainCircuit },
+      { href: '/admin/summaries', label: 'Summary Review', icon: Sparkles },
     ],
   },
 ]

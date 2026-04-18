@@ -154,172 +154,179 @@ export default function Login({ onLogin, onGoToRegister }) {
       ════════════════════════════════════════════════════ */}
       <div className="flex-1 lg:w-[40%] flex items-center justify-center px-6 py-10"
            style={{ background: '#111111' }}>
-        <div className="w-full max-w-[360px]">
-
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                 style={{ background: 'linear-gradient(135deg,#f07c00,#b3541e)' }}>
-              <Cog size={18} className="text-white" />
-            </div>
-            <div>
-              <p className="text-sm font-extrabold text-white">CRUISERS CRIB</p>
-              <p className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(240,124,0,0.7)' }}>Auto Care Center</p>
-            </div>
-          </div>
-
-          {/* Heading */}
-          <p className="text-xs font-bold uppercase tracking-[0.2em] mb-3" style={{ color: '#f07c00' }}>
-            Admin Portal
-          </p>
-          <h2 className="text-3xl font-black text-white leading-tight">Sign In</h2>
-          <p className="text-sm mt-2 mb-8" style={{ color: 'rgba(255,255,255,0.38)' }}>
-            Enter your credentials to continue.
-          </p>
-
-          {/* Error */}
-          {error && (
-            <div className="flex items-start gap-2.5 mb-5 rounded-xl px-4 py-3"
-                 style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
-              <AlertCircle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-400">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-
-            {/* Email */}
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                      style={{ color: 'rgba(255,255,255,0.25)' }} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@cruiserscrib.com"
-                  autoComplete="email"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-white placeholder-[rgba(255,255,255,0.22)] outline-none transition-all duration-150"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.09)',
-                  }}
-                  onFocus={e => { e.target.style.borderColor = 'rgba(240,124,0,0.55)'; e.target.style.boxShadow = '0 0 0 3px rgba(240,124,0,0.10)' }}
-                  onBlur={e  => { e.target.style.borderColor = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = 'none' }}
-                />
+        <div className="w-full max-w-[420px]">
+          <div
+            data-testid="admin-login-card"
+            className="rounded-2xl border border-neutral-800 bg-neutral-900/95 p-7 shadow-[0_28px_70px_rgba(0,0,0,0.38)] backdrop-blur-sm"
+          >
+            {/* Mobile logo */}
+            <div className="flex items-center gap-2.5 mb-8 lg:hidden">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                   style={{ background: 'linear-gradient(135deg,#f07c00,#b3541e)' }}>
+                <Cog size={18} className="text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold text-white">CRUISERS CRIB</p>
+                <p className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(240,124,0,0.7)' }}>Auto Care Center</p>
               </div>
             </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                Password
-              </label>
-              <div className="relative">
-                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                      style={{ color: 'rgba(255,255,255,0.25)' }} />
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                  className="w-full pl-10 pr-11 py-3 rounded-xl text-sm text-white placeholder-[rgba(255,255,255,0.22)] outline-none transition-all duration-150"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.09)',
-                  }}
-                  onFocus={e => { e.target.style.borderColor = 'rgba(240,124,0,0.55)'; e.target.style.boxShadow = '0 0 0 3px rgba(240,124,0,0.10)' }}
-                  onBlur={e  => { e.target.style.borderColor = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = 'none' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(v => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: 'rgba(255,255,255,0.25)' }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
-                >
-                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 rounded-xl text-sm font-bold text-white transition-all duration-150 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: loading
-                  ? 'rgba(179,84,30,0.5)'
-                  : 'linear-gradient(135deg,#f07c00 0%,#b3541e 100%)',
-                boxShadow: loading ? 'none' : '0 4px 20px rgba(179,84,30,0.35)',
-              }}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 size={16} className="animate-spin" /> Signing in...
-                </span>
-              ) : (
-                'Sign In \u2192'
-              )}
-            </button>
-          </form>
-
-          {/* Create Account link */}
-          <p className="text-center mt-6 text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            Don&apos;t have an account?{' '}
-            <button
-              onClick={onGoToRegister}
-              className="font-bold hover:underline transition-colors"
+            {/* Heading */}
+            <p
+              data-testid="admin-portal-eyebrow"
+              className="text-xs font-semibold uppercase tracking-[0.24em] leading-none mb-3"
               style={{ color: '#f07c00' }}
             >
-              Create Account
-            </button>
-          </p>
+              Admin Portal
+            </p>
+            <h2 className="text-3xl font-black text-white leading-tight tracking-tight">Sign In</h2>
+            <p className="text-sm mt-2 mb-8" style={{ color: 'rgba(255,255,255,0.38)' }}>
+              Enter your credentials to continue.
+            </p>
 
-          {/* Demo credentials info card */}
-          <div className="mt-7 rounded-xl p-4"
-               style={{
-                 background: 'rgba(255,255,255,0.03)',
-                 border: '1px solid rgba(255,255,255,0.07)',
-               }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Info size={13} style={{ color: 'rgba(240,124,0,0.7)' }} />
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                Demo Credentials
+            {/* Error */}
+            {error && (
+              <div className="flex items-start gap-2.5 mb-5 rounded-xl px-4 py-3"
+                   style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
+                <AlertCircle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-400">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                        style={{ color: 'rgba(255,255,255,0.25)' }} />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@cruiserscrib.com"
+                    autoComplete="email"
+                    className="w-full pl-10 pr-4 py-3.5 rounded-xl text-sm text-white placeholder-[rgba(255,255,255,0.22)] outline-none transition-all duration-150"
+                    style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.09)',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(240,124,0,0.55)'; e.target.style.boxShadow = '0 0 0 3px rgba(240,124,0,0.10)' }}
+                    onBlur={e  => { e.target.style.borderColor = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = 'none' }}
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                        style={{ color: 'rgba(255,255,255,0.25)' }} />
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    className="w-full pl-10 pr-11 py-3.5 rounded-xl text-sm text-white placeholder-[rgba(255,255,255,0.22)] outline-none transition-all duration-150"
+                    style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.09)',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(240,124,0,0.55)'; e.target.style.boxShadow = '0 0 0 3px rgba(240,124,0,0.10)' }}
+                    onBlur={e  => { e.target.style.borderColor = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = 'none' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(v => !v)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
+                    style={{ color: 'rgba(255,255,255,0.25)' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
+                  >
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 rounded-xl text-sm font-bold text-white transition-all duration-150 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: loading
+                    ? 'rgba(179,84,30,0.5)'
+                    : 'linear-gradient(135deg,#f07c00 0%,#b3541e 100%)',
+                  boxShadow: loading ? 'none' : '0 4px 20px rgba(179,84,30,0.35)',
+                }}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 size={16} className="animate-spin" /> Signing in...
+                  </span>
+                ) : (
+                  'Sign In \u2192'
+                )}
+              </button>
+            </form>
+
+            {/* Create Account link */}
+            <p className="text-center mt-6 text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              Don&apos;t have an account?{' '}
+              <button
+                onClick={onGoToRegister}
+                className="font-bold hover:underline transition-colors"
+                style={{ color: '#f07c00' }}
+              >
+                Create Account
+              </button>
+            </p>
+
+            {/* Demo credentials info card */}
+            <div className="mt-7 rounded-xl p-4"
+                 style={{
+                   background: 'rgba(255,255,255,0.03)',
+                   border: '1px solid rgba(255,255,255,0.07)',
+                 }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Info size={13} style={{ color: 'rgba(240,124,0,0.7)' }} />
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  Demo Credentials
+                </p>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { email: 'admin@cruiserscrib.com',   pass: 'Admin@123', role: 'Service Manager' },
+                  { email: 'staff@cruiserscrib.com',   pass: 'Staff@123', role: 'Service Staff'   },
+                  { email: 'manager@cruiserscrib.com', pass: 'Mgr@123',   role: 'Branch Manager'  },
+                ].map(c => (
+                  <div key={c.email}
+                       className="flex items-center justify-between gap-3 cursor-pointer rounded-lg px-3 py-2 transition-colors"
+                       style={{ background: 'rgba(255,255,255,0.03)' }}
+                       onClick={() => { setEmail(c.email); setPassword(c.pass) }}
+                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(240,124,0,0.06)'}
+                       onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                  >
+                    <div>
+                      <p className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.55)' }}>{c.email}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>{c.role}</p>
+                    </div>
+                    <span className="text-xs font-mono font-bold" style={{ color: 'rgba(240,124,0,0.6)' }}>{c.pass}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[9px] mt-3 text-center" style={{ color: 'rgba(255,255,255,0.18)' }}>
+                Click any row to auto-fill credentials
               </p>
             </div>
-            <div className="space-y-2">
-              {[
-                { email: 'admin@cruiserscrib.com',   pass: 'Admin@123', role: 'Service Manager' },
-                { email: 'staff@cruiserscrib.com',   pass: 'Staff@123', role: 'Service Staff'   },
-                { email: 'manager@cruiserscrib.com', pass: 'Mgr@123',   role: 'Branch Manager'  },
-              ].map(c => (
-                <div key={c.email}
-                     className="flex items-center justify-between gap-3 cursor-pointer rounded-lg px-3 py-2 transition-colors"
-                     style={{ background: 'rgba(255,255,255,0.03)' }}
-                     onClick={() => { setEmail(c.email); setPassword(c.pass) }}
-                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(240,124,0,0.06)'}
-                     onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                >
-                  <div>
-                    <p className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.55)' }}>{c.email}</p>
-                    <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>{c.role}</p>
-                  </div>
-                  <span className="text-xs font-mono font-bold" style={{ color: 'rgba(240,124,0,0.6)' }}>{c.pass}</span>
-                </div>
-              ))}
-            </div>
-            <p className="text-[9px] mt-3 text-center" style={{ color: 'rgba(255,255,255,0.18)' }}>
-              Click any row to auto-fill credentials
-            </p>
           </div>
-
         </div>
       </div>
 

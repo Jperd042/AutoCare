@@ -18,6 +18,12 @@ export default function PasswordField({
   hideErrorText = false,
   containerStyle,
   icon = 'lock-outline',
+  inputWrapStyle,
+  inputFocusStyle,
+  inputStyle,
+  toggleButtonStyle,
+  iconColor,
+  toggleIconColor,
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const describedMessage = error || helperText;
@@ -32,7 +38,9 @@ export default function PasswordField({
       <View
         style={[
           styles.inputWrap,
+          inputWrapStyle,
           isFocused && editable && styles.inputFocused,
+          isFocused && editable && inputFocusStyle,
           !editable && styles.inputReadonly,
           error && styles.inputError,
         ]}
@@ -40,7 +48,7 @@ export default function PasswordField({
         <MaterialCommunityIcons
           name={icon}
           size={18}
-          color={colors.mutedText}
+          color={iconColor || colors.mutedText}
           style={styles.leadingIcon}
         />
 
@@ -52,7 +60,7 @@ export default function PasswordField({
           accessibilityState={{ disabled: !editable, invalid: Boolean(error) }}
           placeholder={placeholder}
           placeholderTextColor={colors.mutedText}
-          style={[styles.input, !editable && styles.inputReadonlyText]}
+          style={[styles.input, inputStyle, !editable && styles.inputReadonlyText]}
           secureTextEntry={!isVisible}
           autoCapitalize="none"
           autoCorrect={false}
@@ -64,7 +72,7 @@ export default function PasswordField({
         />
 
         <TouchableOpacity
-          style={styles.toggleButton}
+          style={[styles.toggleButton, toggleButtonStyle]}
           onPress={() => setIsVisible((currentValue) => !currentValue)}
           disabled={!editable}
           accessibilityRole="button"
@@ -73,7 +81,7 @@ export default function PasswordField({
           <MaterialCommunityIcons
             name={isVisible ? 'eye-off-outline' : 'eye-outline'}
             size={20}
-            color={colors.mutedText}
+            color={toggleIconColor || colors.mutedText}
           />
         </TouchableOpacity>
       </View>
@@ -145,6 +153,7 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
   },
   inputError: {
+    borderWidth: 1,
     borderColor: colors.danger,
   },
   toggleButton: {

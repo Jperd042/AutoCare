@@ -85,6 +85,9 @@ export default function LoginPage({ navigation, route, registeredAccount, onLogi
       backLabel="Back to Home"
       onBack={() => navigation.navigate('Landing')}
       centerContent
+      headerAlignment="center"
+      accentGlowPosition="topRight"
+      showAmbientOrbs={false}
     >
       <FormField
         label="Email Address"
@@ -109,6 +112,10 @@ export default function LoginPage({ navigation, route, registeredAccount, onLogi
         }}
         textContentType="emailAddress"
         icon="email-outline"
+        inputWrapStyle={styles.loginInputWrap}
+        inputFocusStyle={styles.loginInputWrapFocused}
+        inputStyle={styles.loginInputText}
+        iconColor={styles.loginFieldIcon.color}
       />
 
       <PasswordField
@@ -121,6 +128,12 @@ export default function LoginPage({ navigation, route, registeredAccount, onLogi
         onFocus={() => setFocusedField('password')}
         onBlur={() => setFocusedField('')}
         textContentType="password"
+        inputWrapStyle={styles.loginInputWrap}
+        inputFocusStyle={styles.loginInputWrapFocused}
+        inputStyle={styles.loginInputText}
+        toggleButtonStyle={styles.passwordToggle}
+        iconColor={styles.loginFieldIcon.color}
+        toggleIconColor={styles.passwordToggleIcon.color}
       />
 
       <TouchableOpacity
@@ -178,24 +191,22 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     width: '100%',
-    backgroundColor: colors.primary,
+    backgroundColor: '#FF7A00',
     borderRadius: radius.large,
     minHeight: 56,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.authCtaEdge,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.38,
-    shadowRadius: 24,
-    elevation: 6,
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    elevation: 8,
   },
   primaryButtonGlow: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.authCtaGlow,
-    opacity: 0.3,
+    opacity: 0.18,
   },
   primaryButtonContent: {
     position: 'relative',
@@ -225,5 +236,36 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 14,
     fontWeight: '800',
+  },
+  loginInputWrap: {
+    minHeight: 58,
+    paddingHorizontal: 18,
+    borderWidth: 0,
+    borderRadius: 22,
+    backgroundColor: '#1E1E1E',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  loginInputWrapFocused: {
+    borderWidth: 0,
+    backgroundColor: '#1E1E1E',
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  loginInputText: {
+    paddingVertical: 17,
+  },
+  loginFieldIcon: {
+    color: 'rgba(255, 255, 255, 0.42)',
+  },
+  passwordToggle: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  passwordToggleIcon: {
+    color: 'rgba(255, 255, 255, 0.42)',
   },
 });

@@ -23,6 +23,10 @@ export default function FormField({
   hideErrorText = false,
   icon,
   containerStyle,
+  inputWrapStyle,
+  inputFocusStyle,
+  inputStyle,
+  iconColor,
 }) {
   const describedMessage = error || helperText;
   const accessibilityHint = describedMessage
@@ -36,7 +40,9 @@ export default function FormField({
       <View
         style={[
           styles.inputWrap,
+          inputWrapStyle,
           isFocused && editable && styles.inputFocused,
+          isFocused && editable && inputFocusStyle,
           !editable && styles.inputReadonly,
           error && styles.inputError,
         ]}
@@ -45,7 +51,7 @@ export default function FormField({
           <MaterialCommunityIcons
             name={icon}
             size={18}
-            color={colors.mutedText}
+            color={iconColor || colors.mutedText}
             style={styles.leadingIcon}
           />
         ) : null}
@@ -62,6 +68,7 @@ export default function FormField({
             styles.input,
             icon && styles.inputWithIcon,
             multiline && styles.inputMultiline,
+            inputStyle,
             !editable && styles.inputReadonlyText,
           ]}
           keyboardType={keyboardType}
@@ -142,6 +149,7 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
   },
   inputError: {
+    borderWidth: 1,
     borderColor: colors.danger,
   },
   inputWithIcon: {
