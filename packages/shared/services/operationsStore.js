@@ -2,13 +2,39 @@ import { appointments as initialAppointments, shopProducts as initialProducts } 
 
 export const LOW_STOCK_THRESHOLD = 5
 
+function normalizeCategoryName(name) {
+  return typeof name === 'string' ? name.trim().toLowerCase() : ''
+}
+
+function cloneProduct(product) {
+  return {
+    ...product,
+    images: [...(product.images ?? [])],
+  }
+}
+
+function cloneCategory(category) {
+  return { ...category }
+}
+
+function cloneAppointment(appointment) {
+  return {
+    ...appointment,
+    chosenServices: [...appointment.chosenServices],
+  }
+}
+
+function cloneActivityEvent(event) {
+  return { ...event }
+}
+
 function buildCatalogSeed() {
   const categories = []
   const categoriesByName = new Map()
   const now = new Date().toISOString()
 
   const products = initialProducts.map((product) => {
-    const categoryName = product.category
+    const categoryName = typeof product.category === 'string' ? product.category.trim() : ''
     let category = categoriesByName.get(categoryName)
 
     if (!category) {
@@ -106,11 +132,11 @@ export function subscribeOperations(listener) {
 }
 
 export function getInventoryProductsSnapshot() {
-  return getStore().state.products
+  return getStore().state.products.map(cloneProduct)
 }
 
 export function getCatalogCategoriesSnapshot() {
-  return getStore().state.categories
+  return getStore().state.categories.map(cloneCategory)
 }
 
 export function getPublishedCatalogProductsSnapshot() {
@@ -118,11 +144,11 @@ export function getPublishedCatalogProductsSnapshot() {
 }
 
 export function getAppointmentsSnapshot() {
-  return getStore().state.appointments
+  return getStore().state.appointments.map(cloneAppointment)
 }
 
 export function getOperationsActivitySnapshot() {
-  return getStore().state.activity
+  return getStore().state.activity.map(cloneActivityEvent)
 }
 
 export function getLowStockProducts(threshold = LOW_STOCK_THRESHOLD) {
@@ -198,7 +224,7 @@ export function addCatalogCategory(name) {
 
   const store = getStore()
   const existing = store.state.categories.find(
-    (category) => category.name.toLowerCase() === categoryName.toLowerCase()
+    (category) => normalizeCategoryName(category.name) === normalizeCategoryName(categoryName)
   )
 
   if (existing) {
@@ -227,7 +253,9 @@ export function addCatalogCategory(name) {
 export function addInventoryProduct(input) {
   const store = getStore()
   const category = store.state.categories.find(
-    (entry) => entry.id === input?.categoryId || entry.name === input?.category
+    (entry) =>
+      entry.id === input?.categoryId ||
+      normalizeCategoryName(entry.name) === normalizeCategoryName(input?.category)
   )
 
   if (!category) {
@@ -296,7 +324,9 @@ export function checkoutCart({ customerId, items }) {
 
   const store = getStore()
   const productsById = new Map(store.state.products.map((product) => [product.id, product]))
-  const normalizedItems = items.map((item) => {
+  const aggregatedItems = new Map()
+
+  items.forEach((item) => {
     const product = productsById.get(item.productId)
     const quantity = Number(item.quantity)
 
@@ -308,19 +338,39 @@ export function checkoutCart({ customerId, items }) {
       throw new Error('Quantity must be greater than zero.')
     }
 
-    if (product.stock < quantity) {
-      throw new Error(`Insufficient stock for ${product.name}.`)
+    const existing = aggregatedItems.get(product.id)
+
+    if (existing) {
+      existing.quantity += quantity
+      return
     }
 
-    return {
+    aggregatedItems.set(product.id, {
       productId: product.id,
       name: product.name,
       quantity,
       unitPrice: product.price,
       subtotal: product.price * quantity,
+      stock: product.stock,
+    })
+  })
+
+  const normalizedItems = [...aggregatedItems.values()].map((item) => ({
+    productId: item.productId,
+    name: item.name,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    subtotal: item.unitPrice * item.quantity,
+  }))
+
+  normalizedItems.forEach((item) => {
+    const product = productsById.get(item.productId)
+    if (product.stock < item.quantity) {
+      throw new Error(`Insufficient stock for ${product.name}.`)
     }
   })
 
+  const receiptCheckoutNumber = store.state.counters.checkout
   store.state = {
     ...store.state,
     counters: {
@@ -328,7 +378,7 @@ export function checkoutCart({ customerId, items }) {
       checkout: store.state.counters.checkout + 1,
     },
     products: store.state.products.map((product) => {
-      const matchedItem = normalizedItems.find((item) => item.productId === product.id)
+      const matchedItem = aggregatedItems.get(product.id)
 
       if (!matchedItem) {
         return product
@@ -342,7 +392,7 @@ export function checkoutCart({ customerId, items }) {
   }
 
   const receipt = {
-    id: `co-${String(store.state.counters.checkout).padStart(4, '0')}`,
+    id: `co-${String(receiptCheckoutNumber).padStart(4, '0')}`,
     customerId,
     totalItems: normalizedItems.reduce((sum, item) => sum + item.quantity, 0),
     totalAmount: normalizedItems.reduce((sum, item) => sum + item.subtotal, 0),
@@ -370,6 +420,10 @@ export function createAppointment({
 }) {
   if (!vehicleId || !slot || !Array.isArray(chosenServices) || chosenServices.length === 0 || !shopName) {
     throw new Error('Appointment details are incomplete.')
+  }
+
+  if (Number.isNaN(Date.parse(slot))) {
+    throw new Error('Appointment slot is invalid.')
   }
 
   const store = getStore()

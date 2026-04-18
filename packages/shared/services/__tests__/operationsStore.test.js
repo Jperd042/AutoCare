@@ -18,10 +18,25 @@ describe('operations store', () => {
     })
 
     expect(receipt?.totalItems).toBe(4)
+    expect(receipt?.id).toBe('co-0001')
 
     const after = shared.getInventoryProductsSnapshot?.()
     expect(after.find((product) => product.id === 'p2')?.stock).toBe(4)
     expect(shared.getLowStockProducts?.().some((product) => product.id === 'p2')).toBe(true)
+  })
+
+  test('aggregates duplicate checkout lines before validating stock', () => {
+    expect(() =>
+      shared.checkoutCart?.({
+        customerId: 'lp1',
+        items: [
+          { productId: 'p2', quantity: 5 },
+          { productId: 'p2', quantity: 4 },
+        ],
+      })
+    ).toThrow(/Insufficient stock/i)
+
+    expect(shared.getInventoryProductsSnapshot?.().find((product) => product.id === 'p2')?.stock).toBe(8)
   })
 
   test('creates a pending appointment from self-service booking data', () => {
@@ -39,6 +54,19 @@ describe('operations store', () => {
 
     const appointments = shared.getAppointmentsSnapshot?.()
     expect(appointments.some((appointment) => appointment.id === created.id)).toBe(true)
+  })
+
+  test('rejects invalid appointment slots before sorting or job order conversion', () => {
+    expect(() =>
+      shared.createAppointment?.({
+        customerId: 'lp1',
+        vehicleId: 'v1',
+        slot: 'not-a-date',
+        chosenServices: ['PMS 10,000 km Package'],
+        notes: '',
+        shopName: 'CruisersCrib Makati',
+      })
+    ).toThrow(/slot/i)
   })
 
   test('converts an appointment into a job order lifecycle entry', () => {
@@ -92,6 +120,21 @@ describe('operations store', () => {
     expect(shared.getPublishedCatalogProductsSnapshot?.().some((product) => product.id === created.id)).toBe(true)
   })
 
+  test('resolves catalog categories by normalized casing and spacing when creating inventory products', () => {
+    const category = shared.addCatalogCategory?.('Accessories')
+
+    const created = shared.addInventoryProduct?.({
+      category: '  ACCESSORIES  ',
+      name: 'Accessory Organizer Tray',
+      price: 950,
+      description: 'Compact organizer tray for loose interior items.',
+      images: ['https://mock.autocare.local/shop-products/accessory-organizer-tray.jpg'],
+      stock: 4,
+    })
+
+    expect(created?.categoryId).toBe(category.id)
+  })
+
   test('archives a product and removes it from the published catalog snapshot', () => {
     const archived = shared.archiveInventoryProduct?.('p1')
     const published = shared.getPublishedCatalogProductsSnapshot?.()
@@ -121,5 +164,21 @@ describe('operations store', () => {
     expect(listener).toHaveBeenCalledTimes(3)
 
     unsubscribe?.()
+  })
+
+  test('snapshot APIs return clones that do not mutate store state in place', () => {
+    const products = shared.getInventoryProductsSnapshot?.()
+    const categories = shared.getCatalogCategoriesSnapshot?.()
+    const published = shared.getPublishedCatalogProductsSnapshot?.()
+
+    products[0].stock = 999
+    categories[0].name = 'Mutated Category'
+    published[0].status = 'archived'
+    published[0].images.push('https://example.test/mutated.jpg')
+
+    expect(shared.getInventoryProductsSnapshot?.()[0].stock).not.toBe(999)
+    expect(shared.getCatalogCategoriesSnapshot?.()[0].name).not.toBe('Mutated Category')
+    expect(shared.getPublishedCatalogProductsSnapshot?.()[0].status).toBe('published')
+    expect(shared.getPublishedCatalogProductsSnapshot?.()[0].images).not.toContain('https://example.test/mutated.jpg')
   })
 })
