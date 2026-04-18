@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from '@jest/globals'
+import { beforeEach, describe, expect, jest, test } from '@jest/globals'
 import * as shared from '../../index.js'
 
 describe('operations store', () => {
@@ -59,7 +59,7 @@ describe('operations store', () => {
   })
 
   test('published catalog snapshot returns only published products and keeps zero-stock items visible', () => {
-    const published = shared.getPublishedCatalogSnapshot?.()
+    const published = shared.getPublishedCatalogProductsSnapshot?.()
 
     expect(Array.isArray(published)).toBe(true)
     expect(published.every((product) => product.status === 'published')).toBe(true)
@@ -70,7 +70,7 @@ describe('operations store', () => {
   test('creates a catalog category and publishes a new product with optional sku and required catalog fields', () => {
     const category = shared.addCatalogCategory?.('Accessories')
 
-    const created = shared.addCatalogProduct?.({
+    const created = shared.addInventoryProduct?.({
       categoryId: category.id,
       name: 'Ultra Fresh Cabin Filter',
       price: 1450,
@@ -89,17 +89,37 @@ describe('operations store', () => {
     expect(created?.description).toBe('Activated carbon cabin filter for cleaner interior air.')
     expect(created?.images).toEqual(['https://mock.autocare.local/shop-products/ultra-fresh-cabin-filter.jpg'])
     expect(created?.stock).toBe(12)
-    expect(shared.getPublishedCatalogSnapshot?.().some((product) => product.id === created.id)).toBe(true)
+    expect(shared.getPublishedCatalogProductsSnapshot?.().some((product) => product.id === created.id)).toBe(true)
   })
 
   test('archives a product and removes it from the published catalog snapshot', () => {
     const archived = shared.archiveInventoryProduct?.('p1')
-    const published = shared.getPublishedCatalogSnapshot?.()
+    const published = shared.getPublishedCatalogProductsSnapshot?.()
     const inventory = shared.getInventoryProductsSnapshot?.()
 
     expect(archived?.id).toBe('p1')
     expect(archived?.status).toBe('archived')
     expect(published.some((product) => product.id === 'p1')).toBe(false)
     expect(inventory.find((product) => product.id === 'p1')?.status).toBe('archived')
+  })
+
+  test('notifies subscribers when catalog categories and inventory products change', () => {
+    const listener = jest.fn()
+    const unsubscribe = shared.subscribeOperations?.(listener)
+
+    const category = shared.addCatalogCategory?.('Accessories')
+    const created = shared.addInventoryProduct?.({
+      categoryId: category.id,
+      name: 'Cabin Fresh Spray',
+      price: 450,
+      description: 'Fast-acting interior deodorizer.',
+      images: ['https://mock.autocare.local/shop-products/cabin-fresh-spray.jpg'],
+      stock: 9,
+    })
+    shared.archiveInventoryProduct?.(created.id)
+
+    expect(listener).toHaveBeenCalledTimes(3)
+
+    unsubscribe?.()
   })
 })

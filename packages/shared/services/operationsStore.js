@@ -113,7 +113,7 @@ export function getCatalogCategoriesSnapshot() {
   return getStore().state.categories
 }
 
-export function getPublishedCatalogSnapshot() {
+export function getPublishedCatalogProductsSnapshot() {
   return getInventoryProductsSnapshot().filter((product) => product.status === 'published')
 }
 
@@ -220,10 +220,11 @@ export function addCatalogCategory(name) {
     categories: [...store.state.categories, category],
   }
 
+  emitChange()
   return category
 }
 
-export function addCatalogProduct(input) {
+export function addInventoryProduct(input) {
   const store = getStore()
   const category = store.state.categories.find(
     (entry) => entry.id === input?.categoryId || entry.name === input?.category
@@ -255,6 +256,7 @@ export function addCatalogProduct(input) {
     products: [...store.state.products, nextProduct],
   }
 
+  emitChange()
   return nextProduct
 }
 
@@ -283,6 +285,7 @@ export function archiveInventoryProduct(productId) {
     throw new Error(`Product ${productId} does not exist.`)
   }
 
+  emitChange()
   return archivedProduct
 }
 
