@@ -71,7 +71,7 @@ describe('operations store', () => {
     const category = shared.addCatalogCategory?.('Accessories')
 
     const created = shared.addInventoryProduct?.({
-      categoryId: category.id,
+      category: 'Accessories',
       name: 'Ultra Fresh Cabin Filter',
       price: 1450,
       description: 'Activated carbon cabin filter for cleaner interior air.',
