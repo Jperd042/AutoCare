@@ -1,3 +1,4 @@
+import { fireEvent, screen } from '@testing-library/react-native';
 import { ScrollView, StyleSheet } from 'react-native';
 import Dashboard from '../Dashboard';
 import { createNavigation, createRoute, renderScreen } from '../../test/renderScreen';
@@ -31,6 +32,14 @@ const account = {
 };
 
 describe('Dashboard', () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-19T08:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test('opens the insurance section when route params request it', () => {
     const screen = renderScreen(
       <Dashboard
@@ -119,5 +128,50 @@ describe('Dashboard', () => {
 
     expect(screen.getByText('Renan')).toBeTruthy();
     expect(screen.queryByText(/dela Cruz/)).toBeNull();
+  });
+
+  test('shows a month calendar and allows moving to the next visible month inside the 30-day window', () => {
+    renderScreen(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('April 2026')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Go to next booking month'));
+
+    expect(screen.getByText('May 2026')).toBeTruthy();
+    expect(screen.getByLabelText('Select May 1, 2026')).toBeTruthy();
+  });
+
+  test('resets the selected slot when the user switches to another date', () => {
+    renderScreen(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Select 10:00 AM slot'));
+
+    expect(screen.getByLabelText('Select 10:00 AM slot').props.accessibilityState.selected).toBe(true);
+
+    fireEvent.press(screen.getByLabelText('Select Apr 29, 2026'));
+
+    expect(screen.getByLabelText('Select 10:00 AM slot').props.accessibilityState.selected).toBe(false);
   });
 });
