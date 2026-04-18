@@ -1,5 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import {
+  getPublishedCatalogProductsSnapshot,
+  subscribeOperations,
+} from '@autocare/shared';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
@@ -22,6 +32,7 @@ import DatePickerField from '../components/DatePickerField';
 import DeleteAccountModal from '../components/DeleteAccountModal';
 import FormField from '../components/FormField';
 import PasswordChecklist from '../components/PasswordChecklist';
+import ShopCatalogSection from '../components/shop/ShopCatalogSection';
 import { colors, radius } from '../theme';
 import {
   getChangePasswordChecklistState,
@@ -102,6 +113,77 @@ const rewardOffers = [
 ];
 
 const shopCategories = ['All', 'Oils', 'Tires', 'Brakes', 'Electrical', 'Coolants'];
+
+function buildMobileShopProduct(product) {
+  const normalizedName = typeof product?.name === 'string' ? product.name : 'Catalog Product';
+  const brandSource = normalizedName.replace(/\(.*?\)/g, '').trim();
+  const brandParts = brandSource.split(/\s+/).filter(Boolean);
+  const brand = brandParts.slice(0, 2).join(' ') || product?.category || 'AUTLOCARE';
+  const stock = Number(product?.stock || 0);
+  const isOutOfStock = stock === 0;
+  const isLowStock = !isOutOfStock && stock < 10;
+
+  return {
+    key: product.id,
+    id: product.id,
+    category: product.category,
+    brand,
+    name: normalizedName,
+    description: product.description || 'Product details will be available soon.',
+    price: Number(product.price || 0),
+    compareAtPrice: null,
+    rating: 4.8,
+    reviews: Math.max(12, stock + 6),
+    availability: isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock',
+    badge: isOutOfStock ? 'OUT' : isLowStock ? 'LOW' : null,
+    badgeTone: 'warning',
+    image: product?.images?.[0] || 'https://mock.autocare.local/catalog/placeholder-product.jpg',
+    publishedAt: product.publishedAt,
+    stock,
+  };
+}
+
+function reconcileMobileCart(currentItems, productsByKey) {
+  return Object.entries(currentItems).reduce((nextItems, [productKey, item]) => {
+    const liveProduct = productsByKey.get(productKey);
+
+    if (!liveProduct) {
+      return nextItems;
+    }
+
+    const quantity = Math.min(Math.max(Number(item?.quantity || 0), 0), liveProduct.stock);
+
+    if (quantity > 0) {
+      nextItems[productKey] = {
+        ...liveProduct,
+        quantity,
+      };
+    }
+
+    return nextItems;
+  }, {});
+}
+
+function createCachedSnapshot(getSnapshot) {
+  let cachedSerialized = null;
+  let cachedValue = null;
+
+  return function getCachedSnapshot() {
+    const nextValue = getSnapshot();
+    const nextSerialized = JSON.stringify(nextValue);
+
+    if (nextSerialized !== cachedSerialized) {
+      cachedSerialized = nextSerialized;
+      cachedValue = nextValue;
+    }
+
+    return cachedValue;
+  };
+}
+
+const getCachedPublishedCatalogProductsSnapshot = createCachedSnapshot(
+  getPublishedCatalogProductsSnapshot
+);
 
 const bookingServices = [
   {
@@ -1170,8 +1252,6 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
   const [isProfileTooltipVisible, setIsProfileTooltipVisible] = useState(false);
   const [timelineFilter, setTimelineFilter] = useState('All');
-  const [activeShopCategory, setActiveShopCategory] = useState('All');
-  const [shopSearch, setShopSearch] = useState('');
   const [isCartVisible, setIsCartVisible] = useState(false);
   const [cartItems, setCartItems] = useState({});
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -1193,6 +1273,19 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     newPassword: false,
     confirmPassword: false,
   });
+  const publishedCatalogProducts = useSyncExternalStore(
+    subscribeOperations,
+    getCachedPublishedCatalogProductsSnapshot,
+    getCachedPublishedCatalogProductsSnapshot
+  );
+  const publishedShopProducts = useMemo(
+    () => publishedCatalogProducts.map(buildMobileShopProduct),
+    [publishedCatalogProducts]
+  );
+  const publishedShopProductsByKey = useMemo(
+    () => new Map(publishedShopProducts.map((product) => [product.key, product])),
+    [publishedShopProducts]
+  );
   const screenFadeAnim = useRef(new Animated.Value(1)).current;
   const screenTranslateAnim = useRef(new Animated.Value(0)).current;
   const cartOverlayAnim = useRef(new Animated.Value(0)).current;
@@ -1274,6 +1367,20 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
       }).start();
     }
   }, [selectedProduct, productOverlayAnim]);
+
+  useEffect(() => {
+    setCartItems((currentItems) => reconcileMobileCart(currentItems, publishedShopProductsByKey));
+  }, [publishedShopProductsByKey]);
+
+  useEffect(() => {
+    setSelectedProduct((currentProduct) => {
+      if (!currentProduct) {
+        return currentProduct;
+      }
+
+      return publishedShopProductsByKey.get(currentProduct.key) || null;
+    });
+  }, [publishedShopProductsByKey]);
 
   useEffect(() => {
     if (isNotificationsVisible) {
@@ -1381,13 +1488,21 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   };
 
   const handleAddToCart = (product) => {
-    setCartItems((currentItems) => ({
-      ...currentItems,
-      [product.key]: {
-        ...product,
-        quantity: (currentItems[product.key]?.quantity || 0) + 1,
-      },
-    }));
+    if (!product || product.stock <= 0) {
+      return;
+    }
+
+    setCartItems((currentItems) => {
+      const nextQuantity = Math.min((currentItems[product.key]?.quantity || 0) + 1, product.stock);
+
+      return {
+        ...currentItems,
+        [product.key]: {
+          ...product,
+          quantity: nextQuantity,
+        },
+      };
+    });
   };
 
   const handleOpenProduct = (product) => {
@@ -1528,7 +1643,17 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
 
   const handleUpdateCartQuantity = (productKey, nextQuantity) => {
     setCartItems((currentItems) => {
-      if (nextQuantity <= 0) {
+      const liveProduct = publishedShopProductsByKey.get(productKey);
+
+      if (!liveProduct) {
+        const nextItems = { ...currentItems };
+        delete nextItems[productKey];
+        return nextItems;
+      }
+
+      const clampedQuantity = Math.min(Math.max(nextQuantity, 0), liveProduct.stock);
+
+      if (clampedQuantity <= 0) {
         const nextItems = { ...currentItems };
         delete nextItems[productKey];
         return nextItems;
@@ -1537,8 +1662,8 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
       return {
         ...currentItems,
         [productKey]: {
-          ...currentItems[productKey],
-          quantity: nextQuantity,
+          ...liveProduct,
+          quantity: clampedQuantity,
         },
       };
     });
@@ -2202,107 +2327,14 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     ));
 
   const renderStoreContent = () => {
-    const searchTerm = shopSearch.trim().toLowerCase();
-    const filteredProducts = shopProducts.filter((product) => {
-      const matchesCategory =
-        activeShopCategory === 'All' || product.category === activeShopCategory;
-      const matchesSearch =
-        !searchTerm ||
-        product.name.toLowerCase().includes(searchTerm) ||
-        product.brand.toLowerCase().includes(searchTerm);
-
-      return matchesCategory && matchesSearch;
-    });
-    const cartEntries = Object.values(cartItems);
-    const cartCount = cartEntries.reduce((sum, item) => sum + item.quantity, 0);
-    const cartTotal = cartEntries.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
     return renderScrollableContent(styles.shopScrollContent, (
-      <>
-      <View style={styles.shopHeader}>
-        <View style={styles.shopHeaderCopy}>
-          <Text style={styles.shopEyebrow}>CRUISERS CRIB</Text>
-          <Text style={styles.shopTitle}>Auto Shop</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.shopCartButton}
-          onPress={() => setIsCartVisible(true)}
-          activeOpacity={0.86}
-        >
-          <MaterialCommunityIcons name="cart-outline" size={24} color={colors.labelText} />
-          {cartCount > 0 ? (
-            <View style={styles.shopCartBadge}>
-              <Text style={styles.shopCartBadgeText}>{cartCount}</Text>
-            </View>
-          ) : null}
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.shopSearchWrap}>
-        <MaterialCommunityIcons name="magnify" size={20} color={colors.mutedText} />
-        <TextInput
-          value={shopSearch}
-          onChangeText={setShopSearch}
-          placeholder="Search parts, products, brands..."
-          placeholderTextColor={colors.mutedText}
-          style={styles.shopSearchInput}
-          selectionColor={colors.primary}
-        />
-      </View>
-
-      <ScrollView
-        horizontal
-        style={styles.shopCategoryScroller}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.shopCategoryRow}
-      >
-        {shopCategories.map((category) => (
-          <ShopCategoryChip
-            key={category}
-            label={category}
-            isActive={activeShopCategory === category}
-            onPress={() => setActiveShopCategory(category)}
-          />
-        ))}
-      </ScrollView>
-
-      <View style={styles.shopToolbar}>
-        <Text style={styles.shopProductCount}>
-          {filteredProducts.length} product{filteredProducts.length === 1 ? '' : 's'}
-        </Text>
-
-        <TouchableOpacity
-          style={styles.shopFilterButton}
-          onPress={() => Alert.alert('Filters', 'Advanced filters can be added next.')}
-          activeOpacity={0.86}
-        >
-          <MaterialCommunityIcons name="tune-variant" size={16} color={colors.labelText} />
-          <Text style={styles.shopFilterText}>Filter</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.shopGrid}>
-        {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => (
-            <View key={product.key} style={styles.shopGridItem}>
-            <ProductCard
-              item={product}
-              quantity={cartItems[product.key]?.quantity || 0}
-              onAdd={() => handleAddToCart(product)}
-              onOpen={() => handleOpenProduct(product)}
-            />
-          </View>
-        ))
-        ) : (
-          <View style={styles.shopEmptyState}>
-            <MaterialCommunityIcons name="package-variant-closed" size={34} color={colors.border} />
-            <Text style={styles.shopEmptyTitle}>No products found</Text>
-            <Text style={styles.shopEmptyText}>Try a different search or switch categories.</Text>
-          </View>
-        )}
-      </View>
-      </>
+      <ShopCatalogSection
+        products={publishedShopProducts}
+        cartItems={cartItems}
+        onAddToCart={handleAddToCart}
+        onOpenCart={() => setIsCartVisible(true)}
+        onOpenProduct={handleOpenProduct}
+      />
     ));
   };
 
