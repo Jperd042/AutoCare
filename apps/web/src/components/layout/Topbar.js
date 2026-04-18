@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Bell, Search, ChevronDown, Menu, LogOut, X, Car, CalendarCheck, Package, Award } from 'lucide-react'
 import { getVehicles } from '@/lib/vehicleStore'
-import { getAppointmentsSnapshot, getPublishedCatalogProductsSnapshot } from '@autocare/shared'
+import { getAppointmentsSnapshot, getInventoryProductsSnapshot } from '@autocare/shared'
 
 const ROUTE_TITLES = {
   '/':          'Dashboard',
@@ -68,9 +68,9 @@ function GlobalSearch() {
     })
 
     // Search products
-    getPublishedCatalogProductsSnapshot().forEach(p => {
+    getInventoryProductsSnapshot().forEach(p => {
       if (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) {
-        hits.push({ type: 'product', icon: Package, label: p.name, sub: `${p.sku} | PHP ${p.price.toLocaleString()}`, href: '/admin/catalog' })
+        hits.push({ type: 'product', icon: Package, label: p.name, sub: `${p.sku} | PHP ${p.price.toLocaleString()}`, href: '/admin/inventory' })
       }
     })
 
