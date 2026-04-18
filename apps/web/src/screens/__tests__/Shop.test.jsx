@@ -147,7 +147,11 @@ function buildState() {
         createdAt: '2026-04-09T12:00:00.000Z',
       },
     ],
-    categories: ['Accessories', 'Electrical', 'Lubricants'],
+    categories: [
+      { id: 'cat-1', name: 'Accessories' },
+      { id: 'cat-2', name: 'Electrical' },
+      { id: 'cat-3', name: 'Lubricants' },
+    ],
   }
 }
 

@@ -53,7 +53,7 @@ function getCatalogCategoriesSnapshot() {
         .map((product) => product.category)
         .filter(Boolean)
     )
-  )
+  ).map((name) => ({ id: `fallback-${name}`, name }))
 }
 
 const usePublishedCatalogProducts =
@@ -358,7 +358,12 @@ export default function Shop() {
     [products]
   )
   const categories = useMemo(
-    () => ['All', ...sharedCategories.filter(Boolean)],
+    () => [
+      'All',
+      ...sharedCategories
+        .map((category) => (typeof category === 'string' ? category : category?.name))
+        .filter(Boolean),
+    ],
     [sharedCategories]
   )
 
