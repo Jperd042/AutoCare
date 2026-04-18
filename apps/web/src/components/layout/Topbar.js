@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Bell, Search, ChevronDown, Menu, LogOut, X, Car, CalendarCheck, Package, Award } from 'lucide-react'
 import { getVehicles } from '@/lib/vehicleStore'
-import { getAppointmentsSnapshot, getInventoryProductsSnapshot } from '@autocare/shared'
+import { getAppointmentsSnapshot, getPublishedCatalogProductsSnapshot } from '@autocare/shared'
 
 const ROUTE_TITLES = {
   '/':          'Dashboard',
@@ -16,6 +16,7 @@ const ROUTE_TITLES = {
   '/insurance': 'Insurance Inquiries',
   '/shop':      'Shop & Inventory',
   '/admin/inventory': 'Inventory Workspace',
+  '/admin/catalog': 'Catalog Admin',
   '/loyalty':   'Loyalty Management',
   '/admin/qa-audit': 'QA Audit Workspace',
   '/admin/summaries': 'Summary Verification',
@@ -23,8 +24,8 @@ const ROUTE_TITLES = {
 }
 
 const NOTIFICATIONS = [
-  { id: 1, text: 'New booking — ABC-1234 confirmed for Apr 12',  time: '2h ago', unread: true  },
-  { id: 2, text: 'QRS-9012 still In-Repair — 6 hrs elapsed',     time: '5h ago', unread: true  },
+  { id: 1, text: 'New booking - ABC-1234 confirmed for Apr 12',  time: '2h ago', unread: true  },
+  { id: 2, text: 'QRS-9012 still In-Repair - 6 hrs elapsed',     time: '5h ago', unread: true  },
   { id: 3, text: 'Low stock: Bosch Battery NS60 (7 units left)',  time: '1d ago', unread: false },
 ]
 
@@ -51,7 +52,7 @@ function GlobalSearch() {
     // Search vehicles
     getVehicles().forEach(v => {
       if (v.plate.toLowerCase().includes(q) || v.owner.toLowerCase().includes(q) || v.model.toLowerCase().includes(q)) {
-        hits.push({ type: 'vehicle', icon: Car, label: `${v.plate} — ${v.owner}`, sub: `${v.year} ${v.model}`, href: '/vehicles' })
+        hits.push({ type: 'vehicle', icon: Car, label: `${v.plate} - ${v.owner}`, sub: `${v.year} ${v.model}`, href: '/vehicles' })
       }
     })
 
@@ -62,14 +63,14 @@ function GlobalSearch() {
       const v = vehicleMap[a.vehicleId]
       const searchable = [a.jobOrderId, v?.plate, v?.owner, ...a.chosenServices].filter(Boolean).join(' ').toLowerCase()
       if (searchable.includes(q)) {
-        hits.push({ type: 'booking', icon: CalendarCheck, label: `${a.jobOrderId || 'Booking'} — ${v?.plate || ''}`, sub: a.chosenServices.join(', '), href: '/admin/appointments' })
+        hits.push({ type: 'booking', icon: CalendarCheck, label: `${a.jobOrderId || 'Booking'} - ${v?.plate || ''}`, sub: a.chosenServices.join(', '), href: '/admin/appointments' })
       }
     })
 
     // Search products
-    getInventoryProductsSnapshot().forEach(p => {
+    getPublishedCatalogProductsSnapshot().forEach(p => {
       if (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) {
-        hits.push({ type: 'product', icon: Package, label: p.name, sub: `${p.sku} · ₱${p.price.toLocaleString()}`, href: '/admin/inventory' })
+        hits.push({ type: 'product', icon: Package, label: p.name, sub: `${p.sku} | PHP ${p.price.toLocaleString()}`, href: '/admin/catalog' })
       }
     })
 

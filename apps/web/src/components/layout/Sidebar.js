@@ -26,6 +26,7 @@ const NAV = [
     items: [
       { href: '/insurance', label: 'Insurance',         icon: ShieldCheck },
       { href: '/admin/inventory', label: 'Inventory',   icon: ShoppingBag },
+      { href: '/admin/catalog', label: 'Catalog Admin', icon: ShoppingBag },
     ],
   },
   {
