@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { ArrowUpDown, CheckCircle2, Minus, Package, Plus, Search, ShoppingCart, Trash2, X } from 'lucide-react'
-import { useInventoryProducts } from '@/hooks/useOperationsStore.js'
+import * as shared from '@autocare/shared'
+import * as operationsStoreHooks from '@/hooks/useOperationsStore.js'
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
@@ -11,15 +12,71 @@ const SORT_OPTIONS = [
   { value: 'name-asc', label: 'Name A-Z' },
 ]
 
-const INVOICE_STATUSES = [
-  { value: 'pending', label: 'Pending', cls: 'badge-orange' },
-  { value: 'partial', label: 'Partial', cls: 'badge-blue' },
-  { value: 'paid', label: 'Paid', cls: 'badge-green' },
-]
+const EMPTY_CHECKOUT_STATE = {
+  status: 'idle',
+  error: null,
+  receipt: null,
+}
 
 function isPublishedProduct(product) {
   return !product?.status || product.status === 'published'
 }
+
+function subscribeCatalog(listener) {
+  if (typeof shared.subscribeOperations === 'function') {
+    return shared.subscribeOperations(listener)
+  }
+
+  return () => {}
+}
+
+function getPublishedCatalogSnapshot() {
+  if (typeof shared.getPublishedCatalogProductsSnapshot === 'function') {
+    return shared.getPublishedCatalogProductsSnapshot()
+  }
+
+  if (typeof shared.getInventoryProductsSnapshot === 'function') {
+    return shared.getInventoryProductsSnapshot().filter(isPublishedProduct)
+  }
+
+  return []
+}
+
+function getCatalogCategoriesSnapshot() {
+  if (typeof shared.getCatalogCategoriesSnapshot === 'function') {
+    return shared.getCatalogCategoriesSnapshot()
+  }
+
+  return Array.from(
+    new Set(
+      getPublishedCatalogSnapshot()
+        .map((product) => product.category)
+        .filter(Boolean)
+    )
+  )
+}
+
+const usePublishedCatalogProducts =
+  typeof operationsStoreHooks.usePublishedCatalogProducts === 'function'
+    ? operationsStoreHooks.usePublishedCatalogProducts
+    : function usePublishedCatalogProductsFallback() {
+        return useSyncExternalStore(
+          subscribeCatalog,
+          getPublishedCatalogSnapshot,
+          getPublishedCatalogSnapshot
+        )
+      }
+
+const useCatalogCategories =
+  typeof operationsStoreHooks.useCatalogCategories === 'function'
+    ? operationsStoreHooks.useCatalogCategories
+    : function useCatalogCategoriesFallback() {
+        return useSyncExternalStore(
+          subscribeCatalog,
+          getCatalogCategoriesSnapshot,
+          getCatalogCategoriesSnapshot
+        )
+      }
 
 function getProductTimestamp(product) {
   const source = product?.publishedAt ?? product?.createdAt
@@ -38,34 +95,66 @@ function sortProducts(products, sortBy) {
   })
 }
 
-function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove }) {
+function reconcileCart(cart, productsById) {
+  return Object.entries(cart).reduce((nextCart, [productId, quantity]) => {
+    const product = productsById.get(productId)
+
+    if (!product) {
+      return nextCart
+    }
+
+    const safeQuantity = Math.max(0, Math.min(Number(quantity) || 0, product.stock))
+
+    if (safeQuantity > 0) {
+      nextCart[productId] = safeQuantity
+    }
+
+    return nextCart
+  }, {})
+}
+
+function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove, onCheckout }) {
   const [showCheckout, setShowCheckout] = useState(false)
-  const [invoiceForm, setInvoiceForm] = useState({
+  const [checkoutState, setCheckoutState] = useState(EMPTY_CHECKOUT_STATE)
+  const [checkoutForm, setCheckoutForm] = useState({
     customer: '',
     contact: '',
     notes: '',
-    method: 'cash',
-    status: 'pending',
   })
-  const [submitted, setSubmitted] = useState(false)
 
   const cartItems = Object.entries(cart)
-    .map(([id, qty]) => {
-      const product = productsById.get(id)
+    .map(([productId, quantity]) => {
+      const product = productsById.get(productId)
 
-      if (!product || qty <= 0) {
+      if (!product || quantity <= 0) {
         return null
       }
 
-      return { ...product, qty }
+      return { ...product, qty: quantity }
     })
     .filter(Boolean)
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0)
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0)
-  const statusMeta = INVOICE_STATUSES.find((status) => status.value === invoiceForm.status)
 
-  if (submitted) {
+  async function handleCheckout() {
+    try {
+      const receipt = await onCheckout(checkoutForm)
+      setCheckoutState({
+        status: 'success',
+        error: null,
+        receipt,
+      })
+    } catch (error) {
+      setCheckoutState({
+        status: 'error',
+        error: error.message || 'Unable to complete checkout.',
+        receipt: null,
+      })
+    }
+  }
+
+  if (checkoutState.status === 'success') {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
         <div
@@ -74,10 +163,11 @@ function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove }) {
         >
           <CheckCircle2 size={28} className="text-emerald-400" />
         </div>
-        <p className="text-base font-bold text-ink-primary">Invoice Created!</p>
+        <p className="text-base font-bold text-ink-primary">Checkout Complete!</p>
         <p className="text-sm text-ink-secondary">
-          Invoice for {invoiceForm.customer || 'Customer'} has been recorded as{' '}
-          <span className={`badge ${statusMeta?.cls}`}>{statusMeta?.label}</span>.
+          {checkoutState.receipt?.id
+            ? `Receipt ${checkoutState.receipt.id} updated shared inventory stock.`
+            : 'Shared inventory stock was updated for this checkout.'}
         </p>
         <button type="button" onClick={onClose} className="btn-ghost mt-2">
           Close
@@ -111,46 +201,51 @@ function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove }) {
       ) : !showCheckout ? (
         <>
           <ul className="flex-1 divide-y divide-surface-border overflow-y-auto">
-            {cartItems.map((item) => (
-              <li key={item.id} className="px-5 py-4">
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold leading-snug text-ink-primary">{item.name}</p>
-                    <p className="text-xs text-ink-muted">{item.category}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onRemove(item.id)}
-                    className="p-1 text-ink-dim transition-colors hover:text-red-400"
-                    aria-label={`Remove ${item.name} from cart`}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 overflow-hidden rounded-lg border border-surface-border">
+            {cartItems.map((item) => {
+              const maxReached = item.qty >= item.stock
+
+              return (
+                <li key={item.id} className="px-5 py-4">
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold leading-snug text-ink-primary">{item.name}</p>
+                      <p className="text-xs text-ink-muted">{item.category}</p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => onUpdateQty(item.id, item.qty - 1)}
-                      className="px-2.5 py-1.5 text-sm text-ink-muted transition-colors hover:bg-surface-hover"
-                      aria-label={`Decrease ${item.name} quantity`}
+                      onClick={() => onRemove(item.id)}
+                      className="p-1 text-ink-dim transition-colors hover:text-red-400"
+                      aria-label={`Remove ${item.name} from cart`}
                     >
-                      <Minus size={12} />
-                    </button>
-                    <span className="w-6 text-center text-sm font-bold text-ink-primary">{item.qty}</span>
-                    <button
-                      type="button"
-                      onClick={() => onUpdateQty(item.id, item.qty + 1)}
-                      className="px-2.5 py-1.5 text-sm text-ink-muted transition-colors hover:bg-surface-hover"
-                      aria-label={`Increase ${item.name} quantity`}
-                    >
-                      <Plus size={12} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
-                  <p className="text-sm font-bold text-ink-primary">PHP {(item.price * item.qty).toLocaleString()}</p>
-                </div>
-              </li>
-            ))}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 overflow-hidden rounded-lg border border-surface-border">
+                      <button
+                        type="button"
+                        onClick={() => onUpdateQty(item.id, item.qty - 1)}
+                        className="px-2.5 py-1.5 text-sm text-ink-muted transition-colors hover:bg-surface-hover"
+                        aria-label={`Decrease ${item.name} quantity`}
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <span className="w-6 text-center text-sm font-bold text-ink-primary">{item.qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => onUpdateQty(item.id, item.qty + 1)}
+                        disabled={maxReached}
+                        className="px-2.5 py-1.5 text-sm text-ink-muted transition-colors hover:bg-surface-hover disabled:opacity-40"
+                        aria-label={`Increase ${item.name} quantity`}
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                    <p className="text-sm font-bold text-ink-primary">PHP {(item.price * item.qty).toLocaleString()}</p>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
 
           <div className="space-y-3 border-t border-surface-border p-5">
@@ -177,7 +272,7 @@ function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove }) {
             >
               Back to Cart
             </button>
-            <p className="font-bold text-ink-primary">Invoice Details</p>
+            <p className="font-bold text-ink-primary">Checkout Details</p>
 
             <div>
               <label htmlFor="shop-checkout-customer" className="label">
@@ -185,9 +280,9 @@ function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove }) {
               </label>
               <input
                 id="shop-checkout-customer"
-                value={invoiceForm.customer}
+                value={checkoutForm.customer}
                 onChange={(event) =>
-                  setInvoiceForm((current) => ({ ...current, customer: event.target.value }))
+                  setCheckoutForm((current) => ({ ...current, customer: event.target.value }))
                 }
                 placeholder="Full name"
                 className="input"
@@ -199,51 +294,13 @@ function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove }) {
               </label>
               <input
                 id="shop-checkout-contact"
-                value={invoiceForm.contact}
+                value={checkoutForm.contact}
                 onChange={(event) =>
-                  setInvoiceForm((current) => ({ ...current, contact: event.target.value }))
+                  setCheckoutForm((current) => ({ ...current, contact: event.target.value }))
                 }
                 placeholder="09xx / email"
                 className="input"
               />
-            </div>
-            <div>
-              <label htmlFor="shop-checkout-method" className="label">
-                Payment Method
-              </label>
-              <select
-                id="shop-checkout-method"
-                value={invoiceForm.method}
-                onChange={(event) =>
-                  setInvoiceForm((current) => ({ ...current, method: event.target.value }))
-                }
-                className="select"
-              >
-                <option value="cash">Cash</option>
-                <option value="gcash">GCash</option>
-                <option value="card">Credit / Debit Card</option>
-                <option value="bank">Bank Transfer</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Invoice Status</label>
-              <div className="flex gap-2">
-                {INVOICE_STATUSES.map((status) => (
-                  <button
-                    key={status.value}
-                    type="button"
-                    onClick={() => setInvoiceForm((current) => ({ ...current, status: status.value }))}
-                    className={`flex-1 rounded-lg border py-2 text-xs font-bold transition-all ${
-                      invoiceForm.status === status.value
-                        ? 'border-transparent text-white'
-                        : 'border-surface-border text-ink-secondary hover:bg-surface-hover'
-                    }`}
-                    style={invoiceForm.status === status.value ? { backgroundColor: '#f07c00' } : {}}
-                  >
-                    {status.label}
-                  </button>
-                ))}
-              </div>
             </div>
             <div>
               <label htmlFor="shop-checkout-notes" className="label">
@@ -251,9 +308,9 @@ function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove }) {
               </label>
               <textarea
                 id="shop-checkout-notes"
-                value={invoiceForm.notes}
+                value={checkoutForm.notes}
                 onChange={(event) =>
-                  setInvoiceForm((current) => ({ ...current, notes: event.target.value }))
+                  setCheckoutForm((current) => ({ ...current, notes: event.target.value }))
                 }
                 rows={2}
                 className="input resize-none"
@@ -273,15 +330,18 @@ function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove }) {
                 <span style={{ color: '#f07c00' }}>PHP {subtotal.toLocaleString()}</span>
               </div>
             </div>
+            {checkoutState.error ? (
+              <p className="text-sm font-medium text-red-400">{checkoutState.error}</p>
+            ) : null}
           </div>
 
           <div className="border-t border-surface-border p-5">
             <button
               type="button"
-              onClick={() => setSubmitted(true)}
+              onClick={handleCheckout}
               className="btn-primary w-full justify-center py-3"
             >
-              <CheckCircle2 size={15} /> Create Invoice
+              <CheckCircle2 size={15} /> Complete Checkout
             </button>
           </div>
         </>
@@ -291,18 +351,15 @@ function CartDrawer({ cart, productsById, onClose, onUpdateQty, onRemove }) {
 }
 
 export default function Shop() {
-  const inventoryProducts = useInventoryProducts()
-  const products = useMemo(
-    () => inventoryProducts.filter(isPublishedProduct),
-    [inventoryProducts]
-  )
+  const products = usePublishedCatalogProducts()
+  const sharedCategories = useCatalogCategories()
   const productsById = useMemo(
     () => new Map(products.map((product) => [product.id, product])),
     [products]
   )
   const categories = useMemo(
-    () => ['All', ...new Set(products.map((product) => product.category).filter(Boolean))],
-    [products]
+    () => ['All', ...sharedCategories.filter(Boolean)],
+    [sharedCategories]
   )
 
   const [cart, setCart] = useState({})
@@ -312,11 +369,7 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState('newest')
 
   useEffect(() => {
-    setCart((current) =>
-      Object.fromEntries(
-        Object.entries(current).filter(([productId]) => productsById.has(productId))
-      )
-    )
+    setCart((current) => reconcileCart(current, productsById))
   }, [productsById])
 
   useEffect(() => {
@@ -327,33 +380,80 @@ export default function Shop() {
 
   const cartCount = Object.values(cart).reduce((sum, quantity) => sum + quantity, 0)
 
-  function addToCart(id) {
-    const product = productsById.get(id)
+  function addToCart(productId) {
+    const product = productsById.get(productId)
 
     if (!product || product.stock === 0) {
       return
     }
 
-    setCart((current) => ({ ...current, [id]: (current[id] || 0) + 1 }))
+    setCart((current) => {
+      const nextQuantity = Math.min((current[productId] || 0) + 1, product.stock)
+      return {
+        ...current,
+        [productId]: nextQuantity,
+      }
+    })
   }
 
-  function updateQty(id, qty) {
-    if (qty <= 0) {
+  function updateQty(productId, quantity) {
+    const product = productsById.get(productId)
+
+    if (!product) {
       setCart((current) => {
-        const { [id]: _removed, ...rest } = current
+        const { [productId]: _removed, ...rest } = current
         return rest
       })
       return
     }
 
-    setCart((current) => ({ ...current, [id]: qty }))
+    const clampedQuantity = Math.min(Math.max(quantity, 0), product.stock)
+
+    if (clampedQuantity <= 0) {
+      setCart((current) => {
+        const { [productId]: _removed, ...rest } = current
+        return rest
+      })
+      return
+    }
+
+    setCart((current) => ({ ...current, [productId]: clampedQuantity }))
   }
 
-  function removeFromCart(id) {
+  function removeFromCart(productId) {
     setCart((current) => {
-      const { [id]: _removed, ...rest } = current
+      const { [productId]: _removed, ...rest } = current
       return rest
     })
+  }
+
+  async function handleCheckout(checkoutForm) {
+    const reconciledCart = reconcileCart(cart, productsById)
+    const items = Object.entries(reconciledCart).map(([productId, quantity]) => ({
+      productId,
+      quantity,
+    }))
+
+    if (items.length === 0) {
+      throw new Error('Cart must contain at least one item.')
+    }
+
+    if (typeof shared.checkoutCart !== 'function') {
+      throw new Error('Shared checkout is unavailable.')
+    }
+
+    const customerId =
+      checkoutForm.contact.trim() ||
+      checkoutForm.customer.trim() ||
+      'web-shop-customer'
+
+    const receipt = shared.checkoutCart({
+      customerId,
+      items,
+    })
+
+    setCart({})
+    return receipt
   }
 
   const filteredProducts = useMemo(() => {
@@ -438,6 +538,7 @@ export default function Shop() {
           const inCart = cart[product.id] || 0
           const isOutOfStock = product.stock === 0
           const isLowStock = !isOutOfStock && product.stock < 10
+          const isAtStockLimit = inCart >= product.stock
 
           return (
             <div
@@ -491,7 +592,8 @@ export default function Shop() {
                   <button
                     type="button"
                     onClick={() => updateQty(product.id, inCart + 1)}
-                    className="px-3 py-2 text-ink-muted transition-colors hover:bg-surface-hover"
+                    disabled={isAtStockLimit}
+                    className="px-3 py-2 text-ink-muted transition-colors hover:bg-surface-hover disabled:opacity-40"
                     aria-label={`Increase ${product.name} quantity`}
                   >
                     <Plus size={13} />
@@ -523,6 +625,7 @@ export default function Shop() {
               onClose={() => setCartOpen(false)}
               onUpdateQty={updateQty}
               onRemove={removeFromCart}
+              onCheckout={handleCheckout}
             />
           </div>
         </>
