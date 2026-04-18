@@ -42,8 +42,14 @@ describe('LoginPage premium styling', () => {
       />,
     );
 
-    const emailWrapStyle = StyleSheet.flatten(screen.getByLabelText('Email Address').parent.props.style);
-    const passwordWrapStyle = StyleSheet.flatten(screen.getByLabelText('Password').parent.props.style);
+    const emailInput = screen.getByLabelText('Email Address');
+    const passwordInput = screen.getByLabelText('Password');
+    const emailWrapStyle = StyleSheet.flatten(
+      emailInput.parent.parent?.props.style || emailInput.parent.props.style,
+    );
+    const passwordWrapStyle = StyleSheet.flatten(
+      passwordInput.parent.parent?.props.style || passwordInput.parent.props.style,
+    );
     const buttonStyle = StyleSheet.flatten(screen.getByLabelText('Sign in to your account').props.style);
 
     expect(emailWrapStyle.backgroundColor).toBe('#1E1E1E');
