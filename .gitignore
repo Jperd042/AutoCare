@@ -44,3 +44,6 @@ yarn-error.*
 # build logs
 *.err.log
 *.log
+
+# local git worktrees
+.worktrees/

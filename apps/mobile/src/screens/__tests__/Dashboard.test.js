@@ -4,10 +4,10 @@ import { createNavigation, createRoute, renderScreen } from '../../test/renderSc
 
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
-  const { View } = require('react-native');
 
   return {
-    SafeAreaView: ({ children, style }) => React.createElement(View, { style }, children),
+    SafeAreaView: ({ children, style }) =>
+      React.createElement('SafeAreaView', { style }, children),
     useSafeAreaInsets: () => ({
       top: 24,
       right: 0,
@@ -66,5 +66,58 @@ describe('Dashboard', () => {
     const contentStyle = StyleSheet.flatten(scrollView.props.contentContainerStyle);
 
     expect(contentStyle.paddingTop).toBe(42);
+  });
+
+  test('keeps rendering after the account name changes from settings', () => {
+    const navigation = createNavigation();
+    const route = createRoute({
+      initialTab: 'explore',
+    });
+    const { rerender, getByText } = renderScreen(
+      <Dashboard
+        account={account}
+        navigation={navigation}
+        route={route}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    rerender(
+      <Dashboard
+        account={{
+          ...account,
+          firstName: 'Renan',
+          lastName: 'Castro',
+        }}
+        navigation={navigation}
+        route={route}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    expect(getByText('Renan Castro')).toBeTruthy();
+  });
+
+  test('keeps rendering when a saved profile only has a single-word name', () => {
+    const screen = renderScreen(
+      <Dashboard
+        account={{
+          ...account,
+          firstName: 'Renan',
+          lastName: '',
+        }}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'explore',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Renan')).toBeTruthy();
+    expect(screen.queryByText(/dela Cruz/)).toBeNull();
   });
 });

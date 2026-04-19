@@ -93,19 +93,13 @@ export default function App() {
   };
 
   const handleSaveProfile = (profileUpdates) => {
-    setRegisteredAccount((currentAccount) => {
-      if (!currentAccount) {
-        return currentAccount;
-      }
+    setRegisteredAccount((currentAccount) =>
+      currentAccount ? { ...currentAccount, ...profileUpdates } : currentAccount,
+    );
 
-      const nextAccount = { ...currentAccount, ...profileUpdates };
-
-      setActiveAccount((currentActiveAccount) =>
-        currentActiveAccount?.id === currentAccount.id ? nextAccount : currentActiveAccount,
-      );
-
-      return nextAccount;
-    });
+    setActiveAccount((currentActiveAccount) =>
+      currentActiveAccount ? { ...currentActiveAccount, ...profileUpdates } : currentActiveAccount,
+    );
   };
 
   const handleResetPassword = (nextPassword) => {

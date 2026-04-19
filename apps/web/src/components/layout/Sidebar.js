@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Car, CalendarCheck, ShieldCheck,
-  ShoppingBag, Award, History, ChevronLeft, ChevronRight, Cog, Wrench, Settings,
+  ShoppingBag, Award, History, ChevronLeft, ChevronRight, Cog, Wrench, Settings, BrainCircuit, Sparkles,
 } from 'lucide-react'
 
 const NAV = [
@@ -16,7 +16,7 @@ const NAV = [
     group: 'Operations',
     items: [
       { href: '/vehicles',  label: 'Vehicle Records',  icon: Car },
-      { href: '/bookings',  label: 'Bookings',         icon: CalendarCheck },
+      { href: '/admin/appointments',  label: 'Appointments', icon: CalendarCheck },
       { href: '/backjobs',  label: 'Back-Jobs',        icon: Wrench },
       { href: '/timeline',  label: 'Service Timeline', icon: History },
     ],
@@ -25,13 +25,21 @@ const NAV = [
     group: 'Services',
     items: [
       { href: '/insurance', label: 'Insurance',         icon: ShieldCheck },
-      { href: '/shop',      label: 'Inventory',         icon: ShoppingBag },
+      { href: '/admin/inventory', label: 'Inventory',   icon: ShoppingBag },
+      { href: '/admin/catalog', label: 'Catalog Admin', icon: ShoppingBag },
     ],
   },
   {
     group: 'Customer',
     items: [
       { href: '/loyalty',   label: 'Loyalty Management', icon: Award },
+    ],
+  },
+  {
+    group: 'AI Operations',
+    items: [
+      { href: '/admin/qa-audit', label: 'QA Audit', icon: BrainCircuit },
+      { href: '/admin/summaries', label: 'Summary Review', icon: Sparkles },
     ],
   },
 ]
@@ -45,14 +53,14 @@ export default function Sidebar({ collapsed, onToggle }) {
         fixed top-0 left-0 h-screen z-30 flex flex-col
         bg-surface-card border-r border-surface-border
         transition-all duration-200 ease-in-out
-        ${collapsed ? 'w-[60px]' : 'w-56'}
+        ${collapsed ? 'w-[72px]' : 'w-[272px]'}
       `}
     >
       {/* ── Brand ──────────────────────────────────── */}
       <div className={`flex items-center gap-2.5 border-b border-surface-border
                        ${collapsed ? 'px-3 py-4 justify-center' : 'px-4 py-4'}`}>
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-             style={{ background: 'linear-gradient(135deg,#f07c00,#c9951a)' }}>
+        <div className="flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center border border-brand-orange/20"
+             style={{ background: 'linear-gradient(135deg,#ff7a00,#f5b84d)' }}>
           <Cog size={16} className="text-white" />
         </div>
         {!collapsed && (
@@ -81,7 +89,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                     href={href}
                     title={collapsed ? label : undefined}
                     className={`
-                      flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                      flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
                       transition-all duration-150
                       ${collapsed ? 'justify-center' : ''}
                       ${active
@@ -117,21 +125,21 @@ export default function Sidebar({ collapsed, onToggle }) {
             flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
             transition-all duration-150
             ${collapsed ? 'justify-center' : ''}
-            ${pathname === '/settings'
+            ${pathname.startsWith('/settings')
               ? 'text-ink-primary'
               : 'text-ink-muted hover:bg-surface-hover hover:text-ink-secondary'
             }
           `}
-          style={pathname === '/settings' ? {
-            backgroundColor: 'rgba(240,124,0,0.08)',
-            color: '#f07c00',
+          style={pathname.startsWith('/settings') ? {
+            backgroundColor: 'rgba(255,122,0,0.1)',
+            color: '#ff7a00',
           } : {}}
         >
           <Settings size={17} className="flex-shrink-0" />
           {!collapsed && <span className="truncate">Settings</span>}
-          {!collapsed && pathname === '/settings' && (
+          {!collapsed && pathname.startsWith('/settings') && (
             <span className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: '#f07c00' }} />
+                  style={{ backgroundColor: '#ff7a00' }} />
           )}
         </Link>
       </div>

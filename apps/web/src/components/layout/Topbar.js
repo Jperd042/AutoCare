@@ -4,23 +4,28 @@ import { useState, useRef, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Bell, Search, ChevronDown, Menu, LogOut, X, Car, CalendarCheck, Package, Award } from 'lucide-react'
 import { getVehicles } from '@/lib/vehicleStore'
-import { getAppointments } from '@/lib/appointmentStore'
-import { shopProducts } from '@autocare/shared'
+import { getAppointmentsSnapshot, getInventoryProductsSnapshot } from '@autocare/shared'
 
 const ROUTE_TITLES = {
   '/':          'Dashboard',
   '/vehicles':  'Vehicle Records',
   '/bookings':  'Bookings',
+  '/admin/appointments': 'Appointments Queue',
   '/backjobs':  'Back-Jobs',
   '/timeline':  'Service Timeline',
   '/insurance': 'Insurance Inquiries',
   '/shop':      'Shop & Inventory',
+  '/admin/inventory': 'Inventory Workspace',
+  '/admin/catalog': 'Catalog Admin',
   '/loyalty':   'Loyalty Management',
+  '/admin/qa-audit': 'QA Audit Workspace',
+  '/admin/summaries': 'Summary Verification',
+  '/settings':  'Settings',
 }
 
 const NOTIFICATIONS = [
-  { id: 1, text: 'New booking — ABC-1234 confirmed for Apr 12',  time: '2h ago', unread: true  },
-  { id: 2, text: 'QRS-9012 still In-Repair — 6 hrs elapsed',     time: '5h ago', unread: true  },
+  { id: 1, text: 'New booking - ABC-1234 confirmed for Apr 12',  time: '2h ago', unread: true  },
+  { id: 2, text: 'QRS-9012 still In-Repair - 6 hrs elapsed',     time: '5h ago', unread: true  },
   { id: 3, text: 'Low stock: Bosch Battery NS60 (7 units left)',  time: '1d ago', unread: false },
 ]
 
@@ -47,25 +52,25 @@ function GlobalSearch() {
     // Search vehicles
     getVehicles().forEach(v => {
       if (v.plate.toLowerCase().includes(q) || v.owner.toLowerCase().includes(q) || v.model.toLowerCase().includes(q)) {
-        hits.push({ type: 'vehicle', icon: Car, label: `${v.plate} — ${v.owner}`, sub: `${v.year} ${v.model}`, href: '/vehicles' })
+        hits.push({ type: 'vehicle', icon: Car, label: `${v.plate} - ${v.owner}`, sub: `${v.year} ${v.model}`, href: '/vehicles' })
       }
     })
 
     // Search appointments
     const vehicles = getVehicles()
     const vehicleMap = Object.fromEntries(vehicles.map(v => [v.id, v]))
-    getAppointments().forEach(a => {
+    getAppointmentsSnapshot().forEach(a => {
       const v = vehicleMap[a.vehicleId]
       const searchable = [a.jobOrderId, v?.plate, v?.owner, ...a.chosenServices].filter(Boolean).join(' ').toLowerCase()
       if (searchable.includes(q)) {
-        hits.push({ type: 'booking', icon: CalendarCheck, label: `${a.jobOrderId || 'Booking'} — ${v?.plate || ''}`, sub: a.chosenServices.join(', '), href: '/bookings' })
+        hits.push({ type: 'booking', icon: CalendarCheck, label: `${a.jobOrderId || 'Booking'} - ${v?.plate || ''}`, sub: a.chosenServices.join(', '), href: '/admin/appointments' })
       }
     })
 
     // Search products
-    shopProducts.forEach(p => {
+    getInventoryProductsSnapshot().forEach(p => {
       if (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) {
-        hits.push({ type: 'product', icon: Package, label: p.name, sub: `${p.sku} · ₱${p.price.toLocaleString()}`, href: '/shop' })
+        hits.push({ type: 'product', icon: Package, label: p.name, sub: `${p.sku} | PHP ${p.price.toLocaleString()}`, href: '/admin/inventory' })
       }
     })
 
@@ -111,8 +116,8 @@ function GlobalSearch() {
                   <button onClick={() => navigate(r.href)}
                     className="w-full px-4 py-3 text-left hover:bg-surface-hover transition-colors flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                         style={{ backgroundColor: 'rgba(240,124,0,0.08)' }}>
-                      <r.icon size={14} style={{ color: '#f07c00' }} />
+                         style={{ backgroundColor: 'rgba(255,122,0,0.1)' }}>
+                      <r.icon size={14} style={{ color: '#ff7a00' }} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-ink-primary truncate">{r.label}</p>
@@ -157,13 +162,16 @@ export default function Topbar({ onMenuToggle, user, onLogout }) {
 
   return (
     <header className="sticky top-0 z-20 bg-surface-card border-b border-surface-border">
-      <div className="flex items-center gap-3 px-4 h-14">
+      <div className="flex items-center gap-3 px-4 md:px-6 h-16">
 
         <button onClick={onMenuToggle} className="md:hidden p-1.5 rounded-lg text-ink-muted hover:bg-surface-hover">
           <Menu size={20} />
         </button>
 
-        <h1 className="text-sm font-bold text-ink-primary mr-auto truncate tracking-tight">{title}</h1>
+        <div className="mr-auto min-w-0">
+          <h1 className="text-base font-bold text-ink-primary truncate tracking-tight">{title}</h1>
+          <p className="hidden md:block text-xs text-ink-muted mt-0.5">AutoCare admin workspace</p>
+        </div>
 
         {/* Global Search */}
         <GlobalSearch />
@@ -175,7 +183,7 @@ export default function Topbar({ onMenuToggle, user, onLogout }) {
             <Bell size={18} />
             {unread > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-                    style={{ backgroundColor: '#f07c00' }} />
+                    style={{ backgroundColor: '#ff7a00' }} />
             )}
           </button>
 
@@ -205,12 +213,12 @@ export default function Topbar({ onMenuToggle, user, onLogout }) {
           <button onClick={() => { setProfileOpen(v => !v); setNotifOpen(false) }}
             className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-hover transition-colors">
             <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
-                 style={{ background: 'linear-gradient(135deg,#f07c00,#c9951a)' }}>
+                 style={{ background: 'linear-gradient(135deg,#ff7a00,#f5b84d)' }}>
               {initials}
             </div>
             <div className="hidden md:block text-left">
               <p className="text-xs font-semibold text-ink-primary leading-none">{user?.name ?? 'Admin'}</p>
-              <p className="text-[10px] font-semibold mt-0.5" style={{ color: '#f07c00' }}>{user?.role ?? 'Administrator'}</p>
+              <p className="text-[10px] font-semibold mt-0.5" style={{ color: '#ff7a00' }}>{user?.role ?? 'Administrator'}</p>
             </div>
             <ChevronDown size={13} className="text-ink-dim hidden md:block" />
           </button>
@@ -221,7 +229,7 @@ export default function Topbar({ onMenuToggle, user, onLogout }) {
               <div className="absolute right-0 mt-1 w-52 bg-surface-raised border border-surface-border rounded-xl shadow-card-md z-20 overflow-hidden animate-slide-up">
                 <div className="px-4 py-3 border-b border-surface-border">
                   <p className="text-sm font-semibold text-ink-primary">{user?.name ?? 'Admin'}</p>
-                  <p className="text-xs font-semibold mt-0.5" style={{ color: '#f07c00' }}>{user?.role}</p>
+                  <p className="text-xs font-semibold mt-0.5" style={{ color: '#ff7a00' }}>{user?.role}</p>
                   <p className="text-xs text-ink-muted mt-0.5 truncate">{user?.email}</p>
                 </div>
                 <button onClick={() => { close(); onLogout?.() }}

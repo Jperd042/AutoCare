@@ -1,5 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import {
+  getPublishedCatalogProductsSnapshot,
+  subscribeOperations,
+} from '@autocare/shared';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
@@ -22,8 +32,10 @@ import DatePickerField from '../components/DatePickerField';
 import DeleteAccountModal from '../components/DeleteAccountModal';
 import FormField from '../components/FormField';
 import PasswordChecklist from '../components/PasswordChecklist';
+import ShopCatalogSection from '../components/shop/ShopCatalogSection';
 import { colors, radius } from '../theme';
 import {
+  getChangePasswordChecklistState,
   normalizeEmail,
   normalizePhoneNumber,
   validateBirthday,
@@ -101,6 +113,77 @@ const rewardOffers = [
 ];
 
 const shopCategories = ['All', 'Oils', 'Tires', 'Brakes', 'Electrical', 'Coolants'];
+
+function buildMobileShopProduct(product) {
+  const normalizedName = typeof product?.name === 'string' ? product.name : 'Catalog Product';
+  const brandSource = normalizedName.replace(/\(.*?\)/g, '').trim();
+  const brandParts = brandSource.split(/\s+/).filter(Boolean);
+  const brand = brandParts.slice(0, 2).join(' ') || product?.category || 'AUTLOCARE';
+  const stock = Number(product?.stock || 0);
+  const isOutOfStock = stock === 0;
+  const isLowStock = !isOutOfStock && stock < 10;
+
+  return {
+    key: product.id,
+    id: product.id,
+    category: product.category,
+    brand,
+    name: normalizedName,
+    description: product.description || 'Product details will be available soon.',
+    price: Number(product.price || 0),
+    compareAtPrice: null,
+    rating: 4.8,
+    reviews: Math.max(12, stock + 6),
+    availability: isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock',
+    badge: isOutOfStock ? 'OUT' : isLowStock ? 'LOW' : null,
+    badgeTone: 'warning',
+    image: product?.images?.[0] || 'https://mock.autocare.local/catalog/placeholder-product.jpg',
+    publishedAt: product.publishedAt,
+    stock,
+  };
+}
+
+function reconcileMobileCart(currentItems, productsByKey) {
+  return Object.entries(currentItems).reduce((nextItems, [productKey, item]) => {
+    const liveProduct = productsByKey.get(productKey);
+
+    if (!liveProduct) {
+      return nextItems;
+    }
+
+    const quantity = Math.min(Math.max(Number(item?.quantity || 0), 0), liveProduct.stock);
+
+    if (quantity > 0) {
+      nextItems[productKey] = {
+        ...liveProduct,
+        quantity,
+      };
+    }
+
+    return nextItems;
+  }, {});
+}
+
+function createCachedSnapshot(getSnapshot) {
+  let cachedSerialized = null;
+  let cachedValue = null;
+
+  return function getCachedSnapshot() {
+    const nextValue = getSnapshot();
+    const nextSerialized = JSON.stringify(nextValue);
+
+    if (nextSerialized !== cachedSerialized) {
+      cachedSerialized = nextSerialized;
+      cachedValue = nextValue;
+    }
+
+    return cachedValue;
+  };
+}
+
+const getCachedPublishedCatalogProductsSnapshot = createCachedSnapshot(
+  getPublishedCatalogProductsSnapshot
+);
 
 const bookingServices = [
   {
@@ -480,6 +563,17 @@ const splitFullName = (fullName) => {
   };
 };
 
+const getAccountDisplayName = (account) =>
+  [account?.firstName, account?.lastName].filter(Boolean).join(' ').trim() || 'Guest';
+
+const getAccountFirstName = (account) => account?.firstName?.trim() || 'Guest';
+
+const getAccountInitials = (account) => {
+  const initials = [account?.firstName?.[0], account?.lastName?.[0]].filter(Boolean).join('');
+
+  return initials || 'AC';
+};
+
 function MotionPressable({
   children,
   onPress,
@@ -650,7 +744,7 @@ function ProfileAvatarButton({
   onHoverIn,
   onHoverOut,
 }) {
-  const initials = `${account?.firstName?.[0] || 'J'}${account?.lastName?.[0] || 'D'}`;
+  const initials = getAccountInitials(account);
 
   return (
     <View
@@ -1158,8 +1252,6 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
   const [isProfileTooltipVisible, setIsProfileTooltipVisible] = useState(false);
   const [timelineFilter, setTimelineFilter] = useState('All');
-  const [activeShopCategory, setActiveShopCategory] = useState('All');
-  const [shopSearch, setShopSearch] = useState('');
   const [isCartVisible, setIsCartVisible] = useState(false);
   const [cartItems, setCartItems] = useState({});
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -1181,6 +1273,19 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     newPassword: false,
     confirmPassword: false,
   });
+  const publishedCatalogProducts = useSyncExternalStore(
+    subscribeOperations,
+    getCachedPublishedCatalogProductsSnapshot,
+    getCachedPublishedCatalogProductsSnapshot
+  );
+  const publishedShopProducts = useMemo(
+    () => publishedCatalogProducts.map(buildMobileShopProduct),
+    [publishedCatalogProducts]
+  );
+  const publishedShopProductsByKey = useMemo(
+    () => new Map(publishedShopProducts.map((product) => [product.key, product])),
+    [publishedShopProducts]
+  );
   const screenFadeAnim = useRef(new Animated.Value(1)).current;
   const screenTranslateAnim = useRef(new Animated.Value(0)).current;
   const cartOverlayAnim = useRef(new Animated.Value(0)).current;
@@ -1262,6 +1367,20 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
       }).start();
     }
   }, [selectedProduct, productOverlayAnim]);
+
+  useEffect(() => {
+    setCartItems((currentItems) => reconcileMobileCart(currentItems, publishedShopProductsByKey));
+  }, [publishedShopProductsByKey]);
+
+  useEffect(() => {
+    setSelectedProduct((currentProduct) => {
+      if (!currentProduct) {
+        return currentProduct;
+      }
+
+      return publishedShopProductsByKey.get(currentProduct.key) || null;
+    });
+  }, [publishedShopProductsByKey]);
 
   useEffect(() => {
     if (isNotificationsVisible) {
@@ -1369,13 +1488,21 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   };
 
   const handleAddToCart = (product) => {
-    setCartItems((currentItems) => ({
-      ...currentItems,
-      [product.key]: {
-        ...product,
-        quantity: (currentItems[product.key]?.quantity || 0) + 1,
-      },
-    }));
+    if (!product || product.stock <= 0) {
+      return;
+    }
+
+    setCartItems((currentItems) => {
+      const nextQuantity = Math.min((currentItems[product.key]?.quantity || 0) + 1, product.stock);
+
+      return {
+        ...currentItems,
+        [product.key]: {
+          ...product,
+          quantity: nextQuantity,
+        },
+      };
+    });
   };
 
   const handleOpenProduct = (product) => {
@@ -1516,7 +1643,17 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
 
   const handleUpdateCartQuantity = (productKey, nextQuantity) => {
     setCartItems((currentItems) => {
-      if (nextQuantity <= 0) {
+      const liveProduct = publishedShopProductsByKey.get(productKey);
+
+      if (!liveProduct) {
+        const nextItems = { ...currentItems };
+        delete nextItems[productKey];
+        return nextItems;
+      }
+
+      const clampedQuantity = Math.min(Math.max(nextQuantity, 0), liveProduct.stock);
+
+      if (clampedQuantity <= 0) {
         const nextItems = { ...currentItems };
         delete nextItems[productKey];
         return nextItems;
@@ -1525,8 +1662,8 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
       return {
         ...currentItems,
         [productKey]: {
-          ...currentItems[productKey],
-          quantity: nextQuantity,
+          ...liveProduct,
+          quantity: clampedQuantity,
         },
       };
     });
@@ -1686,6 +1823,13 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     });
   };
 
+  const securityChecklistState = getChangePasswordChecklistState({
+    currentPassword: securityForm.currentPassword,
+    newPassword: securityForm.newPassword,
+    confirmPassword: securityForm.confirmPassword,
+    savedPassword: account?.password || '',
+  });
+
   const renderScrollableContent = (contentStyle, children) => {
     const flattenedContentStyle = StyleSheet.flatten(contentStyle) || {};
     const adjustedContentStyle = isWeb
@@ -1738,7 +1882,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
               <Image source={{ uri: account.profileImage }} style={styles.profileImage} />
             ) : (
               <Text style={styles.avatarInitials}>
-                {`${account?.firstName?.[0] || ''}${account?.lastName?.[0] || ''}`}
+                {getAccountInitials(account)}
               </Text>
             )}
             <View style={styles.avatarBadge}>
@@ -1748,7 +1892,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
 
           <View style={styles.profileCopy}>
             <Text style={styles.profileName}>
-              {account?.firstName} {account?.lastName}
+              {getAccountDisplayName(account)}
             </Text>
             <Text style={styles.profileSubline}>{account?.email}</Text>
             <Text style={styles.profileSubline}>+63 {account?.phoneNumber?.slice(1, 4)}-{account?.phoneNumber?.slice(4, 7)}-{account?.phoneNumber?.slice(7)}</Text>
@@ -1932,7 +2076,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
             <Image source={{ uri: account.profileImage }} style={styles.largeProfileImage} />
           ) : (
             <Text style={styles.largeAvatarInitials}>
-              {`${account?.firstName?.[0] || ''}${account?.lastName?.[0] || ''}`}
+              {getAccountInitials(account)}
             </Text>
           )}
         </View>
@@ -2110,10 +2254,16 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
         }
       />
 
-      <PasswordChecklist password={securityForm.newPassword} />
+      <PasswordChecklist
+        password={securityForm.newPassword}
+        currentPassword={securityForm.currentPassword}
+        confirmPassword={securityForm.confirmPassword}
+        savedPassword={account?.password || ''}
+        includeSecurityContext
+      />
 
       <PasswordFieldRow
-        label="Confirm New Password"
+        label="Re-enter Password"
         value={securityForm.confirmPassword}
         onChangeText={(value) => handleSecurityFieldChange('confirmPassword', value)}
         placeholder="Re-enter your new password"
@@ -2126,6 +2276,10 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
           }))
         }
       />
+
+      {!securityErrors.confirmPassword && securityChecklistState.confirmPasswordMatches ? (
+        <Text style={styles.securityMatchText}>Passwords match</Text>
+      ) : null}
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleSavePassword}>
         <Text style={styles.primaryButtonText}>Save Password</Text>
@@ -2173,107 +2327,14 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     ));
 
   const renderStoreContent = () => {
-    const searchTerm = shopSearch.trim().toLowerCase();
-    const filteredProducts = shopProducts.filter((product) => {
-      const matchesCategory =
-        activeShopCategory === 'All' || product.category === activeShopCategory;
-      const matchesSearch =
-        !searchTerm ||
-        product.name.toLowerCase().includes(searchTerm) ||
-        product.brand.toLowerCase().includes(searchTerm);
-
-      return matchesCategory && matchesSearch;
-    });
-    const cartEntries = Object.values(cartItems);
-    const cartCount = cartEntries.reduce((sum, item) => sum + item.quantity, 0);
-    const cartTotal = cartEntries.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
     return renderScrollableContent(styles.shopScrollContent, (
-      <>
-      <View style={styles.shopHeader}>
-        <View style={styles.shopHeaderCopy}>
-          <Text style={styles.shopEyebrow}>CRUISERS CRIB</Text>
-          <Text style={styles.shopTitle}>Auto Shop</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.shopCartButton}
-          onPress={() => setIsCartVisible(true)}
-          activeOpacity={0.86}
-        >
-          <MaterialCommunityIcons name="cart-outline" size={24} color={colors.labelText} />
-          {cartCount > 0 ? (
-            <View style={styles.shopCartBadge}>
-              <Text style={styles.shopCartBadgeText}>{cartCount}</Text>
-            </View>
-          ) : null}
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.shopSearchWrap}>
-        <MaterialCommunityIcons name="magnify" size={20} color={colors.mutedText} />
-        <TextInput
-          value={shopSearch}
-          onChangeText={setShopSearch}
-          placeholder="Search parts, products, brands..."
-          placeholderTextColor={colors.mutedText}
-          style={styles.shopSearchInput}
-          selectionColor={colors.primary}
-        />
-      </View>
-
-      <ScrollView
-        horizontal
-        style={styles.shopCategoryScroller}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.shopCategoryRow}
-      >
-        {shopCategories.map((category) => (
-          <ShopCategoryChip
-            key={category}
-            label={category}
-            isActive={activeShopCategory === category}
-            onPress={() => setActiveShopCategory(category)}
-          />
-        ))}
-      </ScrollView>
-
-      <View style={styles.shopToolbar}>
-        <Text style={styles.shopProductCount}>
-          {filteredProducts.length} product{filteredProducts.length === 1 ? '' : 's'}
-        </Text>
-
-        <TouchableOpacity
-          style={styles.shopFilterButton}
-          onPress={() => Alert.alert('Filters', 'Advanced filters can be added next.')}
-          activeOpacity={0.86}
-        >
-          <MaterialCommunityIcons name="tune-variant" size={16} color={colors.labelText} />
-          <Text style={styles.shopFilterText}>Filter</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.shopGrid}>
-        {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => (
-            <View key={product.key} style={styles.shopGridItem}>
-            <ProductCard
-              item={product}
-              quantity={cartItems[product.key]?.quantity || 0}
-              onAdd={() => handleAddToCart(product)}
-              onOpen={() => handleOpenProduct(product)}
-            />
-          </View>
-        ))
-        ) : (
-          <View style={styles.shopEmptyState}>
-            <MaterialCommunityIcons name="package-variant-closed" size={34} color={colors.border} />
-            <Text style={styles.shopEmptyTitle}>No products found</Text>
-            <Text style={styles.shopEmptyText}>Try a different search or switch categories.</Text>
-          </View>
-        )}
-      </View>
-      </>
+      <ShopCatalogSection
+        products={publishedShopProducts}
+        cartItems={cartItems}
+        onAddToCart={handleAddToCart}
+        onOpenCart={() => setIsCartVisible(true)}
+        onOpenProduct={handleOpenProduct}
+      />
     ));
   };
 
@@ -2573,8 +2634,8 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     const currentHour = new Date().getHours();
     const greeting =
       currentHour < 12 ? 'Good morning,' : currentHour < 18 ? 'Good afternoon,' : 'Good evening,';
-    const firstName = account?.firstName || 'Juan';
-    const lastName = account?.lastName || 'dela Cruz';
+    const firstName = getAccountFirstName(account);
+    const displayName = getAccountDisplayName(account);
     const unreadCount = notificationsFeed.filter((item) => item.unread).length;
     const pinnedNotification = notificationsFeed[0] || null;
     const topStatus =
@@ -2686,9 +2747,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
 
       <Text style={styles.homeGreeting}>{greeting}</Text>
       <View style={styles.homeNameRow}>
-        <Text style={styles.homeName}>
-          {firstName} {lastName}
-        </Text>
+        <Text style={styles.homeName}>{displayName}</Text>
         <Text style={styles.homeWave}>👋</Text>
       </View>
 
@@ -2806,6 +2865,10 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
       const visibleTimelineItems = recentServiceHistory.filter((item) =>
         timelineFilter === 'All' ? true : item.type === timelineFilter
       );
+      const latestService = visibleTimelineItems[0];
+      const insightCopy = latestService
+        ? `Based on your recent ${latestService.title.toLowerCase()} and service cadence, AutoCare expects a follow-up inspection window soon. Keeping this timeline verified helps the team recommend the right next visit.`
+        : 'AutoCare keeps this timeline organized so your next recommended service is easier to explain and approve.';
 
       return renderScrollableContent(styles.timelineScrollContent, (
         <>
@@ -2818,6 +2881,19 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
           <MotionPressable style={styles.timelineFilterIconButton} onPress={() => null}>
             <MaterialCommunityIcons name="filter-variant" size={18} color={colors.labelText} />
           </MotionPressable>
+        </View>
+
+        <View style={styles.timelineInsightCard}>
+          <View style={styles.timelineInsightHeader}>
+            <View style={styles.timelineInsightIcon}>
+              <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={colors.primary} />
+            </View>
+            <View style={styles.timelineInsightCopy}>
+              <Text style={styles.timelineInsightEyebrow}>AUTOCARE INSIGHT</Text>
+              <Text style={styles.timelineInsightTitle}>Why this service history matters</Text>
+            </View>
+          </View>
+          <Text style={styles.timelineInsightText}>{insightCopy}</Text>
         </View>
 
         <View style={styles.timelineStatsRow}>
@@ -3862,6 +3938,48 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: 18,
+  },
+  timelineInsightCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceStrong,
+    padding: 16,
+    marginBottom: 16,
+  },
+  timelineInsightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  timelineInsightIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  timelineInsightCopy: {
+    flex: 1,
+  },
+  timelineInsightEyebrow: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    marginBottom: 4,
+  },
+  timelineInsightTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  timelineInsightText: {
+    color: colors.mutedText,
+    fontSize: 14,
+    lineHeight: 21,
   },
   timelineTitle: {
     color: colors.text,
@@ -5767,13 +5885,18 @@ const styles = StyleSheet.create({
   passwordInputWrap: {
     minHeight: 54,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.medium,
+    borderColor: colors.authInputBorder,
+    borderRadius: radius.large,
     paddingLeft: 14,
     paddingRight: 10,
-    backgroundColor: colors.input,
+    backgroundColor: colors.authInput,
     flexDirection: 'row',
     alignItems: 'center',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 2,
   },
   passwordInputWrapError: {
     borderColor: colors.danger,
@@ -5788,6 +5911,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 10,
+    paddingRight: 6,
+    minHeight: 38,
+    borderRadius: 12,
+    backgroundColor: colors.authPanelInset,
   },
   eyeButtonText: {
     color: colors.mutedText,
@@ -5800,6 +5927,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     lineHeight: 18,
+  },
+  securityMatchText: {
+    color: colors.success,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: -6,
+    marginBottom: 12,
   },
   infoBlock: {
     paddingVertical: 18,

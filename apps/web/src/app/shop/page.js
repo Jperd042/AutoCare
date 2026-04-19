@@ -1,7 +1,7 @@
-import InventoryManager from '@/screens/InventoryManager'
+import Shop from '@/screens/Shop'
 
-export const metadata = { title: 'Shop & Inventory' }
+export const metadata = { title: 'Shop' }
 
 export default function ShopPage() {
-  return <InventoryManager />
+  return <Shop />
 }

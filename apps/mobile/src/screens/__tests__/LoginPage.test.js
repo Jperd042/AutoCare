@@ -58,7 +58,7 @@ describe('LoginPage', () => {
 
     expect(backLinkStyle.paddingTop).toBe(28);
     expect(backLinkStyle.paddingBottom).toBe(10);
-    expect(heroStyle.paddingTop).toBe(8);
+    expect(heroStyle.paddingTop).toBe(12);
   });
 
   test('submits valid credentials and navigates to OTP', () => {
@@ -130,7 +130,7 @@ describe('RegisterPage', () => {
 
     fireEvent.press(screen.getByLabelText('Create account'));
 
-    expect(screen.getByText('Password Requirements')).toBeTruthy();
+    expect(screen.getByText('Realtime Validation')).toBeTruthy();
     expect(screen.getByText('Enter your password.')).toBeTruthy();
     expect(screen.getByText('8-14 characters')).toBeTruthy();
     expect(onRegister).not.toHaveBeenCalled();

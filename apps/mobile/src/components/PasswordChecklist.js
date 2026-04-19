@@ -1,47 +1,79 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius } from '../theme';
-import { getPasswordChecks } from '../utils/validation';
+import {
+  getChangePasswordChecklistState,
+  getPasswordChecks,
+  passwordRequirementItems,
+} from '../utils/validation';
 
-const checklistItems = [
-  { key: 'hasValidLength', label: '8-14 characters' },
-  { key: 'hasUppercase', label: 'One uppercase letter (A-Z)' },
-  { key: 'hasLowercase', label: 'One lowercase letter (a-z)' },
-  { key: 'hasNumber', label: 'One number (0-9)' },
-  { key: 'hasSpecialCharacter', label: 'One special character (!@#$%^&*)' },
-];
+function ChecklistRow({ label, met }) {
+  return (
+    <View style={styles.row}>
+      <View style={[styles.iconWrap, met ? styles.iconWrapComplete : styles.iconWrapPending]}>
+        <MaterialCommunityIcons
+          name={met ? 'check-circle' : 'checkbox-blank-circle-outline'}
+          size={14}
+          color={met ? colors.success : colors.mutedText}
+        />
+      </View>
+      <Text style={[styles.label, met ? styles.complete : styles.pending]}>{label}</Text>
+    </View>
+  );
+}
 
 export default function PasswordChecklist({
   password,
+  currentPassword = '',
+  confirmPassword = '',
+  savedPassword = '',
   visible = true,
-  title = 'Password Requirements',
+  title = 'Realtime Validation',
+  includeSecurityContext = false,
 }) {
   if (!visible) {
     return null;
   }
 
-  const checks = getPasswordChecks(password);
+  const requirements = includeSecurityContext
+    ? getChangePasswordChecklistState({
+        currentPassword,
+        newPassword: password,
+        confirmPassword,
+        savedPassword,
+      })
+    : {
+        requirements: getPasswordChecks(password),
+      };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
 
-      {checklistItems.map((item) => {
-        const isComplete = checks[item.key];
+      {passwordRequirementItems.map((item) => (
+        <ChecklistRow
+          key={item.key}
+          label={item.label}
+          met={requirements.requirements[item.key]}
+        />
+      ))}
 
-        return (
-          <View key={item.key} style={styles.row}>
-            <View style={[styles.iconWrap, isComplete && styles.iconWrapComplete]}>
-              <MaterialCommunityIcons
-                name={isComplete ? 'check' : 'minus'}
-                size={12}
-                color={isComplete ? colors.onPrimary : colors.mutedText}
-              />
-            </View>
-            <Text style={[styles.label, isComplete ? styles.complete : styles.pending]}>{item.label}</Text>
-          </View>
-        );
-      })}
+      {includeSecurityContext ? (
+        <>
+          <ChecklistRow
+            label="Current password matches your active credentials"
+            met={requirements.currentPasswordMatches}
+          />
+          <ChecklistRow
+            label="New password is different from current password"
+            met={requirements.newPasswordDiffersFromCurrent}
+          />
+          <ChecklistRow
+            label="Re-entered password matches the new password"
+            met={requirements.confirmPasswordMatches}
+          />
+        </>
+      ) : null}
     </View>
   );
 }
@@ -50,18 +82,18 @@ const styles = StyleSheet.create({
   container: {
     marginTop: 2,
     marginBottom: 18,
-    gap: 9,
+    gap: 10,
     borderWidth: 1,
     borderColor: colors.authPanelBorder,
     borderRadius: radius.large,
     backgroundColor: colors.authPanel,
-    paddingHorizontal: 15,
-    paddingVertical: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 2,
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 3,
   },
   title: {
     color: colors.authSecondaryText,
@@ -69,7 +101,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2.2,
     textTransform: 'uppercase',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   row: {
     flexDirection: 'row',
@@ -78,22 +110,21 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 20,
     height: 20,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: colors.authInputBorder,
-    backgroundColor: colors.authPanelInset,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   iconWrapComplete: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.successSoft,
+  },
+  iconWrapPending: {
+    backgroundColor: colors.authPanelInset,
   },
   label: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 13,
+    lineHeight: 18,
   },
   complete: {
     color: colors.text,

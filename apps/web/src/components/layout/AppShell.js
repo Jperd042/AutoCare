@@ -68,7 +68,7 @@ export default function AppShell({ children }) {
     )
   }
 
-  const sidebarW = collapsed ? 'md:pl-[60px]' : 'md:pl-56'
+  const sidebarW = collapsed ? 'md:pl-[72px]' : 'md:pl-[272px]'
 
   return (
     <ToastProvider>
@@ -88,9 +88,9 @@ export default function AppShell({ children }) {
         {/* Right column: topbar + scrollable content */}
         <div className={`flex flex-col flex-1 min-h-0 overflow-hidden transition-all duration-200 ${sidebarW}`}>
           <Topbar user={user} onMenuToggle={() => setMobileOpen(v => !v)} onLogout={handleLogout} />
-          <main className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 cc-scrollbar">
+          <main className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 xl:p-8 cc-scrollbar">
             <UserProvider user={user} updateUser={updateUser}>
-              <div className="animate-fade-in">
+              <div className="animate-fade-in max-w-[1600px] mx-auto">
                 {children}
               </div>
             </UserProvider>

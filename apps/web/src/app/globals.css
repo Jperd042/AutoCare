@@ -26,8 +26,8 @@
 @layer components {
 
   /* ── Cards ─────────────────────────────────────────────── */
-  .card       { @apply bg-surface-card border border-surface-border rounded-xl; }
-  .card-raised{ @apply bg-surface-raised border border-surface-border rounded-xl; }
+  .card       { @apply bg-surface-card border border-surface-border rounded-2xl shadow-card; }
+  .card-raised{ @apply bg-surface-raised border border-surface-border rounded-2xl shadow-card; }
 
   /* ── Typography ─────────────────────────────────────────── */
   .section-heading { @apply text-sm font-semibold text-ink-secondary uppercase tracking-wider mb-4; }
@@ -36,11 +36,11 @@
   /* ── Badges ─────────────────────────────────────────────── */
   .badge        { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold; }
   .badge-green  { @apply bg-emerald-500/10 text-emerald-400; }
-  .badge-orange { background-color: rgba(240,124,0,0.12); color: #f07c00; }
-  .badge-gray   { @apply bg-zinc-700/60 text-zinc-400; }
+  .badge-orange { background-color: rgba(255,122,0,0.14); color: #ff7a00; }
+  .badge-gray   { @apply bg-slate-700/50 text-slate-300; }
   .badge-red    { @apply bg-red-500/10 text-red-400; }
   .badge-blue   { @apply bg-blue-500/10 text-blue-400; }
-  .badge-gold   { background-color: rgba(201,149,26,0.12); color: #c9951a; }
+  .badge-gold   { background-color: rgba(245,184,77,0.14); color: #f5b84d; }
   .badge-purple { @apply bg-purple-500/10 text-purple-400; }
 
   /* ── Buttons ─────────────────────────────────────────────── */
@@ -48,7 +48,9 @@
     @apply inline-flex items-center justify-center gap-2
            text-sm font-semibold text-white px-4 py-2.5 rounded-lg
            transition-all duration-150;
-    background-color: #f07c00;
+    border-radius: 1rem;
+    background-color: #ff7a00;
+    box-shadow: 0 10px 24px rgba(255, 122, 0, 0.18);
   }
   .btn-primary:hover { background-color: #ff9530; }
   .btn-primary:disabled { @apply opacity-50 cursor-not-allowed; }
@@ -57,6 +59,7 @@
     @apply inline-flex items-center justify-center gap-2 border border-surface-border
            text-ink-secondary text-sm font-medium px-4 py-2.5 rounded-lg
            hover:bg-surface-hover hover:text-ink-primary transition-all duration-150;
+    border-radius: 1rem;
   }
 
   .btn-danger {
@@ -70,8 +73,9 @@
     @apply w-full bg-surface-input border border-surface-border rounded-lg
            px-3.5 py-2.5 text-sm text-ink-primary placeholder-ink-muted
            outline-none transition-all duration-150;
+    border-radius: 1rem;
   }
-  .input:focus { border-color: #f07c00; box-shadow: 0 0 0 3px rgba(240,124,0,0.1); }
+  .input:focus { border-color: #ff7a00; box-shadow: 0 0 0 3px rgba(255,122,0,0.1); }
 
   .label { @apply block text-xs font-semibold text-ink-secondary mb-1.5; }
 
@@ -79,8 +83,9 @@
     @apply w-full bg-surface-input border border-surface-border rounded-lg
            px-3.5 py-2.5 text-sm text-ink-primary outline-none transition-all duration-150
            appearance-none;
+    border-radius: 1rem;
   }
-  .select:focus { border-color: #f07c00; box-shadow: 0 0 0 3px rgba(240,124,0,0.1); }
+  .select:focus { border-color: #ff7a00; box-shadow: 0 0 0 3px rgba(255,122,0,0.1); }
 
   /* ── Scrollable area (main content) ─────────────────────── */
   .cc-scrollbar::-webkit-scrollbar       { width: 4px; }
@@ -92,7 +97,7 @@
   .divider { @apply border-t border-surface-border; }
 
   /* ── Step / Progress ─────────────────────────────────────── */
-  .step-active   { color: #f07c00; border-color: #f07c00; background-color: rgba(240,124,0,0.1); }
-  .step-done     { background-color: #f07c00; border-color: #f07c00; @apply text-white; }
+  .step-active   { color: #ff7a00; border-color: #ff7a00; background-color: rgba(255,122,0,0.1); }
+  .step-done     { background-color: #ff7a00; border-color: #ff7a00; @apply text-white; }
   .step-inactive { @apply bg-surface-raised border-surface-border text-ink-muted; }
 }

@@ -6,6 +6,14 @@
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^09\d{9}$/;
 
+export const passwordRequirementItems = [
+  { key: 'hasValidLength', label: '8-14 characters' },
+  { key: 'hasUppercase', label: 'One uppercase letter (A-Z)' },
+  { key: 'hasLowercase', label: 'One lowercase letter (a-z)' },
+  { key: 'hasNumber', label: 'One number (0-9)' },
+  { key: 'hasSpecialCharacter', label: 'One special character (!@#$%^&*)' },
+];
+
 export const monthLabels = [
   'January',
   'February',
@@ -94,6 +102,20 @@ export const getPasswordChecks = (password) => {
   };
 };
 
+export const getChangePasswordChecklistState = ({
+  currentPassword = '',
+  newPassword = '',
+  confirmPassword = '',
+  savedPassword = '',
+} = {}) => ({
+  requirements: getPasswordChecks(newPassword),
+  currentPasswordMatches: Boolean(currentPassword) && currentPassword === savedPassword,
+  newPasswordDiffersFromCurrent:
+    Boolean(newPassword) && Boolean(currentPassword) && newPassword !== currentPassword,
+  confirmPasswordMatches:
+    Boolean(confirmPassword) && Boolean(newPassword) && confirmPassword === newPassword,
+});
+
 export const isPasswordValid = (password) => {
   const checks = getPasswordChecks(password);
   return Object.values(checks).every(Boolean);
@@ -164,6 +186,36 @@ export const validateLoginForm = (form) => {
 
   if (!form.password) {
     errors.password = 'Enter your password.';
+  }
+
+  return errors;
+};
+
+export const validateChangePassword = ({
+  currentPassword = '',
+  newPassword = '',
+  confirmPassword = '',
+  savedPassword = '',
+} = {}) => {
+  const errors = {};
+
+  if (!currentPassword) {
+    errors.currentPassword = 'Enter your current password.';
+  } else if (savedPassword && currentPassword !== savedPassword) {
+    errors.currentPassword = 'Current password is incorrect.';
+  }
+
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) {
+    errors.newPassword = passwordError;
+  } else if (currentPassword && newPassword === currentPassword) {
+    errors.newPassword = 'New password must be different from current.';
+  }
+
+  if (!confirmPassword) {
+    errors.confirmPassword = 'Re-enter your new password.';
+  } else if (newPassword !== confirmPassword) {
+    errors.confirmPassword = 'Passwords do not match.';
   }
 
   return errors;

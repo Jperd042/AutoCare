@@ -93,10 +93,17 @@ export default function ChangePassword({ navigation, account, onChangePassword }
         textContentType="newPassword"
       />
 
-      <PasswordChecklist password={form.newPassword} visible={shouldShowPasswordChecklist} />
+      <PasswordChecklist
+        password={form.newPassword}
+        currentPassword={form.currentPassword}
+        confirmPassword={form.confirmPassword}
+        savedPassword={account?.password || ''}
+        visible={shouldShowPasswordChecklist}
+        includeSecurityContext
+      />
 
       <PasswordField
-        label="Confirm New Password"
+        label="Re-enter Password"
         value={form.confirmPassword}
         onChangeText={(value) => handleFieldChange('confirmPassword', value)}
         placeholder="Re-enter your new password"
@@ -143,9 +150,14 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: colors.primary,
-    borderRadius: radius.medium,
+    borderRadius: radius.large,
     paddingVertical: 16,
     alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.24,
+    shadowRadius: 22,
+    elevation: 4,
   },
   primaryButtonText: {
     color: colors.onPrimary,

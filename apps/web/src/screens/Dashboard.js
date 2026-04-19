@@ -1,274 +1,331 @@
 'use client'
 
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import {
-  Car, CalendarCheck, Wrench, AlertTriangle, ArrowUpRight,
-  Clock, CheckCircle2, AlertCircle, Star, Plus, TrendingUp,
+  AlertTriangle,
+  ArrowRight,
+  CalendarCheck,
+  Car,
+  Clock3,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  Wrench,
 } from 'lucide-react'
 import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, AreaChart, Area,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts'
-import { useVehicles }     from '@/hooks/useVehicles'
 import { useAppointments } from '@/hooks/useAppointments'
-import { useUser }         from '@/lib/userContext.jsx'
-import { shopProducts, monthlyRevenue, bookingVolume, peakHourData } from '@autocare/shared'
+import { useVehicles } from '@/hooks/useVehicles'
+import { useUser } from '@/lib/userContext.jsx'
+import {
+  bookingVolume,
+  getMaintenanceAlerts,
+  getRecommendation,
+  monthlyRevenue,
+  peakHourData,
+  shopProducts,
+  timelineEvents,
+} from '@autocare/shared'
 
-// ── Recharts theme helpers ────────────────────────────────────────────────────
-const CHART_STYLE = {
-  tickStyle:    { fill: '#71717a', fontSize: 11 },
-  gridColor:    '#27272a',
-  tooltipStyle: { backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: 10, fontSize: 12 },
-  tooltipLabel: { color: '#f4f4f5', fontWeight: 700 },
+const fadeIn = {
+  hidden: { opacity: 0, y: 12 },
+  visible: (index = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.28, delay: index * 0.05, ease: 'easeOut' },
+  }),
 }
 
-function ChartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={CHART_STYLE.tooltipStyle} className="px-3 py-2 shadow-lg">
-      <p className="text-xs font-bold text-ink-primary mb-1">{label}</p>
-      {payload.map(p => (
-        <p key={p.dataKey} className="text-xs" style={{ color: p.color }}>
-          {p.name}: {typeof p.value === 'number' && p.name?.toLowerCase().includes('₱')
-            ? `₱${p.value.toLocaleString()}` : p.value}
-        </p>
-      ))}
-    </div>
-  )
-}
-
-function RevenueTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={CHART_STYLE.tooltipStyle} className="px-3 py-2 shadow-lg">
-      <p className="text-xs font-bold text-ink-primary mb-1">{label}</p>
-      {payload.map(p => (
-        <p key={p.dataKey} className="text-xs" style={{ color: p.color }}>
-          {p.name}: ₱{Number(p.value).toLocaleString()}
-        </p>
-      ))}
-    </div>
-  )
-}
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
-function Stat({ icon: Icon, label, value, sub, iconBg }) {
-  return (
-    <div className="card p-5 flex items-start gap-4">
-      <div className="p-2.5 rounded-xl flex-shrink-0" style={{ backgroundColor: iconBg }}>
-        <Icon size={19} className="text-white" />
-      </div>
-      <div>
-        <p className="text-2xl font-extrabold text-ink-primary">{value}</p>
-        <p className="text-xs font-semibold text-ink-secondary mt-0.5">{label}</p>
-        {sub && <p className="text-xs text-ink-muted mt-0.5">{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
-function Skeleton({ w = 'w-3/4' }) {
-  return <div className={`h-3.5 bg-surface-raised rounded animate-pulse ${w}`} />
-}
-
-// ── Component ─────────────────────────────────────────────────────────────────
 function getGreeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
   return 'Good evening'
+}
+
+function CardSkeleton() {
+  return <div className="h-28 rounded-2xl bg-surface-raised animate-pulse" />
+}
+
+function StatCard({ icon: Icon, label, value, detail, accent, index }) {
+  return (
+    <motion.div custom={index} initial="hidden" animate="visible" variants={fadeIn}>
+      <div className="card p-5 h-full">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-ink-muted">{label}</p>
+            <p className="text-3xl font-bold text-ink-primary mt-3">{value}</p>
+            <p className="text-xs text-ink-secondary mt-2">{detail}</p>
+          </div>
+          <div
+            className="w-12 h-12 rounded-2xl border flex items-center justify-center"
+            style={{ backgroundColor: `${accent}1A`, borderColor: `${accent}33`, color: accent }}
+          >
+            <Icon size={20} />
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+function InsightCard({ title, detail, badge, accent = '#ff7a00', index }) {
+  return (
+    <motion.div custom={index} initial="hidden" animate="visible" variants={fadeIn}>
+      <div className="card p-5 h-full">
+        <div className="flex items-start gap-3">
+          <div
+            className="w-11 h-11 rounded-2xl border flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${accent}14`, borderColor: `${accent}33`, color: accent }}
+          >
+            <Sparkles size={18} />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <p className="text-sm font-semibold text-ink-primary">{title}</p>
+              {badge ? <span className="badge badge-orange">{badge}</span> : null}
+            </div>
+            <p className="text-sm text-ink-secondary leading-6">{detail}</p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+function ChartCard({ title, subtitle, children }) {
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="card-title">{title}</p>
+          <p className="text-xs text-ink-muted mt-1">{subtitle}</p>
+        </div>
+      </div>
+      {children}
+    </div>
+  )
 }
 
 export default function Dashboard() {
   const user = useUser()
-  const { vehicles,     loading: vLoad } = useVehicles()
-  const { appointments, loading: aLoad } = useAppointments()
+  const { vehicles, loading: vehiclesLoading } = useVehicles()
+  const { appointments, loading: appointmentsLoading } = useAppointments()
 
-  const vehicleMap   = Object.fromEntries(vehicles.map(v => [v.id, v]))
-  const activeAppt   = appointments.filter(a => ['confirmed','pending','in_progress'].includes(a.status)).length
-  const pendingCount = appointments.filter(a => a.status === 'pending').length
-  const lowStock     = shopProducts.filter(p => p.stock < 10).length
-  const totalRevenue = monthlyRevenue.reduce((s, m) => s + m.revenue, 0)
-  const firstName    = user?.name?.split(' ')[0] ?? 'Admin'
+  const firstName = user?.name?.split(' ')[0] ?? 'Admin'
+  const pendingAppointments = appointments.filter((appointment) => appointment.status === 'pending')
+  const activeBookings = appointments.filter((appointment) =>
+    ['confirmed', 'pending', 'in_progress'].includes(appointment.status),
+  ).length
+  const lowStockProducts = shopProducts.filter((product) => product.stock < 10)
+  const urgentAlerts = vehicles.flatMap((vehicle) =>
+    getMaintenanceAlerts(
+      vehicle,
+      timelineEvents.filter((event) => event.vehicleId === vehicle.id),
+    ),
+  )
+
+  const recommendationInsights = appointments
+    .map((appointment) => {
+      const vehicle = vehicles.find((item) => item.id === appointment.vehicleId)
+      return getRecommendation(
+        appointment,
+        vehicle,
+        timelineEvents.filter((event) => event.vehicleId === appointment.vehicleId),
+      )
+    })
+    .filter(Boolean)
+
+  const statusCards = [
+    {
+      icon: CalendarCheck,
+      label: 'Active Bookings',
+      value: activeBookings,
+      detail: `${pendingAppointments.length} still awaiting approval`,
+      accent: '#ff7a00',
+    },
+    {
+      icon: AlertTriangle,
+      label: 'Maintenance Alerts',
+      value: urgentAlerts.length,
+      detail: 'Vehicles with upcoming or overdue service needs',
+      accent: '#ef4444',
+    },
+    {
+      icon: ShieldCheck,
+      label: 'Low Stock Risks',
+      value: lowStockProducts.length,
+      detail: 'Inventory lines that need replenishment attention',
+      accent: '#f59e0b',
+    },
+    {
+      icon: TrendingUp,
+      label: '6-Month Revenue',
+      value: `PHP ${Math.round(monthlyRevenue.reduce((sum, month) => sum + month.revenue, 0) / 1000)}k`,
+      detail: 'Combined service and parts revenue',
+      accent: '#22c55e',
+    },
+  ]
+
+  const insightCards = [
+    urgentAlerts[0]
+      ? {
+          title: 'Expert System Insight',
+          detail: urgentAlerts[0].detail,
+          badge: urgentAlerts[0].severity,
+          accent: urgentAlerts[0].severity === 'High Priority' ? '#ef4444' : '#ff7a00',
+        }
+      : null,
+    recommendationInsights[0]
+      ? {
+          title: 'Recommended Upsell',
+          detail: recommendationInsights[0].message,
+          badge: recommendationInsights[0].suggestedService,
+          accent: '#3b82f6',
+        }
+      : null,
+    pendingAppointments[0]
+      ? {
+          title: 'Operational Focus',
+          detail: `${pendingAppointments[0].chosenServices.join(', ')} needs confirmation for ${new Date(
+            pendingAppointments[0].slot,
+          ).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}.`,
+          badge: 'Pending',
+          accent: '#f59e0b',
+        }
+      : null,
+  ].filter(Boolean)
 
   return (
     <div className="space-y-6">
-
-      {/* ── Welcome banner ──────────────────────────── */}
-      <section className="relative overflow-hidden rounded-2xl p-6"
-               style={{ background: 'linear-gradient(135deg, #111113 0%, #1a1000 100%)', border: '1px solid rgba(240,124,0,0.15)' }}>
-        <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-[0.07] blur-3xl pointer-events-none"
-             style={{ background: 'radial-gradient(circle, #f07c00, transparent)' }} />
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="card p-6 md:p-7 overflow-hidden relative"
+      >
+        <div className="absolute inset-y-0 right-0 w-72 bg-gradient-to-l from-brand-orange/10 to-transparent pointer-events-none" />
         <div className="relative">
-          <p className="text-2xl font-extrabold text-ink-primary">
-            {getGreeting()}, <span style={{ color: '#f07c00' }}>{firstName}</span>
+          <p className="text-sm uppercase tracking-[0.24em] text-brand-orange font-semibold">Operations Overview</p>
+          <h1 className="text-3xl font-bold text-ink-primary mt-3">
+            {getGreeting()}, {firstName}
+          </h1>
+          <p className="text-sm text-ink-secondary mt-3 max-w-2xl leading-6">
+            Your AutoCare dashboard now surfaces vehicle health, booking workload, and expert-system guidance in one
+            cleaner workspace.
           </p>
-          <p className="text-sm text-ink-secondary mt-1.5">
-            Here's your operational snapshot for today. {pendingCount > 0
-              ? `You have ${pendingCount} pending request${pendingCount > 1 ? 's' : ''} awaiting confirmation.`
-              : 'All bookings are confirmed — looking good!'}
-          </p>
-        </div>
-      </section>
-
-      {/* ── Stat cards ──────────────────────────────── */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat icon={CalendarCheck} label="Active Bookings"  value={activeAppt}          sub="today"                         iconBg="#f07c00" />
-        <Stat icon={Clock}         label="Pending Requests" value={pendingCount}         sub="awaiting confirmation"         iconBg="#b45309" />
-        <Stat icon={AlertTriangle} label="Low Stock Alerts" value={lowStock}             sub={`of ${shopProducts.length} products`} iconBg="#dc2626" />
-        <Stat icon={TrendingUp}    label="6-Mo Revenue"    value={`₱${(totalRevenue/1000).toFixed(0)}k`} sub="service + parts"  iconBg="#16a34a" />
-      </section>
-
-      {/* ── Quick actions ───────────────────────────── */}
-      <section className="flex flex-wrap gap-3">
-        <Link href="/bookings" className="btn-primary"><Plus size={15} /> New Booking</Link>
-        <Link href="/vehicles" className="btn-ghost"><Car size={15} /> Register Vehicle</Link>
-        <Link href="/bookings?tab=backjob" className="btn-ghost"><Wrench size={15} /> Back-Job Intake</Link>
-      </section>
-
-      {/* ── Charts row 1: Revenue + Booking Volume ───── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-        {/* Revenue Trend */}
-        <section className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="card-title">Revenue / Sales Trend</p>
-            <span className="text-xs text-ink-muted">Last 6 months</span>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={monthlyRevenue} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#f07c00" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#f07c00" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="partsGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#c9951a" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#c9951a" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={CHART_STYLE.gridColor} />
-              <XAxis dataKey="month" tick={CHART_STYLE.tickStyle} axisLine={false} tickLine={false} />
-              <YAxis tick={CHART_STYLE.tickStyle} axisLine={false} tickLine={false}
-                     tickFormatter={v => `₱${(v/1000).toFixed(0)}k`} width={48} />
-              <Tooltip content={<RevenueTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 11, color: '#71717a' }} />
-              <Area type="monotone" dataKey="revenue" name="Total Revenue" stroke="#f07c00" strokeWidth={2}
-                    fill="url(#revGrad)" dot={{ r: 3, fill: '#f07c00' }} activeDot={{ r: 5 }} />
-              <Area type="monotone" dataKey="parts" name="Parts Sales" stroke="#c9951a" strokeWidth={2}
-                    fill="url(#partsGrad)" dot={{ r: 3, fill: '#c9951a' }} activeDot={{ r: 5 }} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </section>
-
-        {/* Booking Volume by Service Type */}
-        <section className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="card-title">Booking Volume by Service</p>
-            <span className="text-xs text-ink-muted">Current period</span>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={bookingVolume} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={CHART_STYLE.gridColor} vertical={false} />
-              <XAxis dataKey="type" tick={CHART_STYLE.tickStyle} axisLine={false} tickLine={false}
-                     angle={-30} textAnchor="end" height={44} interval={0} />
-              <YAxis tick={CHART_STYLE.tickStyle} axisLine={false} tickLine={false} width={28} />
-              <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="count" name="Bookings" fill="#f07c00" radius={[4, 4, 0, 0]} maxBarSize={40} />
-            </BarChart>
-          </ResponsiveContainer>
-        </section>
-      </div>
-
-      {/* ── Chart row 2: Peak Hour ────────────────────── */}
-      <section className="card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <p className="card-title">Peak Hour Analysis</p>
-          <span className="text-xs text-ink-muted">Average walk-ins / appointments per hour</span>
-        </div>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={peakHourData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_STYLE.gridColor} vertical={false} />
-            <XAxis dataKey="hour" tick={CHART_STYLE.tickStyle} axisLine={false} tickLine={false} />
-            <YAxis tick={CHART_STYLE.tickStyle} axisLine={false} tickLine={false} width={28} />
-            <Tooltip content={<ChartTooltip />} />
-            <Bar dataKey="bookings" name="Bookings" fill="#c9951a" radius={[4, 4, 0, 0]} maxBarSize={36} />
-          </BarChart>
-        </ResponsiveContainer>
-      </section>
-
-      {/* ── Priority alert row ───────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-        {/* Low Stock Alerts */}
-        <section className="card">
-          <div className="px-5 py-4 border-b border-surface-border flex items-center justify-between">
-            <p className="card-title flex items-center gap-2">
-              <AlertTriangle size={15} className="text-red-400" /> Low Stock Alerts
-            </p>
-            <Link href="/shop" className="text-xs font-semibold flex items-center gap-1 hover:underline"
-                  style={{ color: '#f07c00' }}>
-              Manage Inventory <ArrowUpRight size={11} />
+          <div className="flex flex-wrap gap-3 mt-5">
+            <Link href="/bookings" className="btn-primary">
+              <CalendarCheck size={15} />
+              Review Bookings
+            </Link>
+            <Link href="/timeline" className="btn-ghost">
+              <Sparkles size={15} />
+              Open Timeline Insights
             </Link>
           </div>
-          <div className="divide-y divide-surface-border">
-            {shopProducts.filter(p => p.stock < 10).map(p => (
-              <div key={p.id} className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-surface-hover">
-                <div>
-                  <p className="text-sm font-medium text-ink-primary">{p.name}</p>
-                  <p className="text-xs text-ink-muted">{p.category} · {p.sku}</p>
+        </div>
+      </motion.section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {vehiclesLoading || appointmentsLoading
+          ? Array.from({ length: 4 }).map((_, index) => <CardSkeleton key={index} />)
+          : statusCards.map((card, index) => <StatCard key={card.label} index={index} {...card} />)}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-3">
+        {insightCards.map((card, index) => (
+          <InsightCard key={`${card.title}-${index}`} index={index} {...card} />
+        ))}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <ChartCard title="Revenue Trend" subtitle="Monthly service and parts sales">
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={monthlyRevenue}>
+              <defs>
+                <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ff7a00" stopOpacity={0.32} />
+                  <stop offset="95%" stopColor="#ff7a00" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="#223047" vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Area type="monotone" dataKey="revenue" stroke="#ff7a00" fill="url(#revenueFill)" strokeWidth={2.5} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Booking Mix" subtitle="Most requested service categories">
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={bookingVolume}>
+              <CartesianGrid stroke="#223047" vertical={false} />
+              <XAxis dataKey="type" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Bar dataKey="count" fill="#f5b84d" radius={[10, 10, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.4fr,1fr]">
+        <ChartCard title="Peak Hour Analysis" subtitle="Average bookings by hour">
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={peakHourData}>
+              <CartesianGrid stroke="#223047" vertical={false} />
+              <XAxis dataKey="hour" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Bar dataKey="bookings" fill="#3b82f6" radius={[10, 10, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="card-title">Priority Watchlist</p>
+              <p className="text-xs text-ink-muted mt-1">Items that need action soonest</p>
+            </div>
+            <Link href="/shop" className="text-sm font-semibold text-brand-orange inline-flex items-center gap-1">
+              View all <ArrowRight size={14} />
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {urgentAlerts.slice(0, 2).map((alert) => (
+              <div key={alert.id} className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle size={15} className="text-red-400" />
+                  <p className="text-sm font-semibold text-ink-primary">{alert.title}</p>
                 </div>
-                <span className={`badge flex-shrink-0 ${p.stock <= 5 ? 'badge-red' : 'badge-orange'}`}>
-                  {p.stock} left
-                </span>
+                <p className="text-sm text-ink-secondary">{alert.detail}</p>
+              </div>
+            ))}
+            {lowStockProducts.slice(0, 2).map((product) => (
+              <div key={product.id} className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock3 size={15} className="text-amber-400" />
+                  <p className="text-sm font-semibold text-ink-primary">{product.name}</p>
+                </div>
+                <p className="text-sm text-ink-secondary">{product.stock} left in stock. Reorder before the next booking spike.</p>
               </div>
             ))}
           </div>
-        </section>
-
-        {/* Pending bookings */}
-        <section className="card overflow-hidden">
-          <div className="px-5 py-4 border-b border-surface-border flex items-center justify-between">
-            <p className="card-title flex items-center gap-2">
-              <Clock size={15} style={{ color: '#f07c00' }} /> Pending Requests
-            </p>
-            <Link href="/bookings" className="text-xs font-semibold flex items-center gap-1 hover:underline"
-                  style={{ color: '#f07c00' }}>
-              View all <ArrowUpRight size={11} />
-            </Link>
-          </div>
-          <ul className="divide-y divide-surface-border">
-            {aLoad
-              ? Array.from({length:3}).map((_,i)=>(
-                  <li key={i} className="px-5 py-4 space-y-2"><Skeleton /><Skeleton w="w-1/2"/></li>
-                ))
-              : appointments.filter(a => a.status === 'pending').map(a => {
-                  const v = vehicleMap[a.vehicleId]
-                  const d = new Date(a.slot).toLocaleString('en-PH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
-                  return (
-                    <li key={a.id} className="px-5 py-3.5 hover:bg-surface-hover transition-colors">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold text-ink-primary">
-                            {v ? `${v.owner} — ` : ''}<span className="font-mono text-xs" style={{color:'#f07c00'}}>{v?.plate}</span>
-                          </p>
-                          <p className="text-xs text-ink-muted mt-0.5">
-                            {a.chosenServices.join(', ')}
-                          </p>
-                          <p className="text-xs text-ink-dim mt-0.5"><Clock size={10} className="inline mr-1" />{d}</p>
-                        </div>
-                        <span className="badge badge-orange flex-shrink-0">Pending</span>
-                      </div>
-                    </li>
-                  )
-                })
-            }
-            {!aLoad && appointments.filter(a => a.status === 'pending').length === 0 && (
-              <li className="px-5 py-8 text-center text-ink-muted text-sm">No pending requests</li>
-            )}
-          </ul>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   )
 }

@@ -23,6 +23,10 @@ export default function FormField({
   hideErrorText = false,
   icon,
   containerStyle,
+  inputWrapStyle,
+  inputFocusStyle,
+  inputStyle,
+  iconColor,
 }) {
   const describedMessage = error || helperText;
   const accessibilityHint = describedMessage
@@ -36,7 +40,9 @@ export default function FormField({
       <View
         style={[
           styles.inputWrap,
+          inputWrapStyle,
           isFocused && editable && styles.inputFocused,
+          isFocused && editable && inputFocusStyle,
           !editable && styles.inputReadonly,
           error && styles.inputError,
         ]}
@@ -45,7 +51,7 @@ export default function FormField({
           <MaterialCommunityIcons
             name={icon}
             size={18}
-            color={colors.mutedText}
+            color={iconColor || colors.mutedText}
             style={styles.leadingIcon}
           />
         ) : null}
@@ -62,6 +68,7 @@ export default function FormField({
             styles.input,
             icon && styles.inputWithIcon,
             multiline && styles.inputMultiline,
+            inputStyle,
             !editable && styles.inputReadonlyText,
           ]}
           keyboardType={keyboardType}
@@ -107,17 +114,17 @@ const styles = StyleSheet.create({
   inputWrap: {
     borderWidth: 1,
     borderColor: colors.authInputBorder,
-    borderRadius: radius.medium,
+    borderRadius: radius.large,
     backgroundColor: colors.authInput,
-    minHeight: 54,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 3,
   },
   leadingIcon: {
     marginRight: 9,
@@ -125,7 +132,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: colors.text,
-    paddingVertical: 14,
+    paddingVertical: 15,
     fontSize: 15,
   },
   inputFocused: {
@@ -133,15 +140,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.authInputFocus,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    elevation: 3,
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 4,
   },
   inputReadonly: {
     backgroundColor: colors.authInputReadonly,
     color: colors.mutedText,
   },
   inputError: {
+    borderWidth: 1,
     borderColor: colors.danger,
   },
   inputWithIcon: {
