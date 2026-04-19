@@ -935,6 +935,7 @@ function BookingCalendarDay({ item, isSelected, onPress }) {
 
   return (
     <MotionPressable
+      containerStyle={styles.bookingCalendarDayContainer}
       style={[
         styles.bookingCalendarDay,
         isSelected && styles.bookingCalendarDayActive,
@@ -4499,9 +4500,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  bookingCalendarDay: {
+  bookingCalendarDayContainer: {
     width: '14.28%',
-    aspectRatio: 1,
+    minHeight: 44,
+  },
+  bookingCalendarDay: {
+    minHeight: 44,
     borderRadius: 16,
     backgroundColor: '#1D2434',
     borderWidth: 1,
@@ -4525,6 +4529,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     fontWeight: '800',
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   bookingCalendarDayTextActive: {
     color: colors.onPrimary,

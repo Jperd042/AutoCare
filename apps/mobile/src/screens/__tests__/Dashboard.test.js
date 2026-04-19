@@ -155,6 +155,31 @@ describe('Dashboard', () => {
     expect(screen.getByLabelText('Select May 1, 2026')).toBeTruthy();
   });
 
+  test('applies calendar day sizing on the pressable wrapper so Android does not collapse day cells', () => {
+    renderScreen(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    const dayButton = screen.getByLabelText('Select Apr 19, 2026');
+    const dayButtonStyle = StyleSheet.flatten(dayButton.props.style);
+
+    expect(dayButtonStyle).toEqual(
+      expect.objectContaining({
+        width: '14.28%',
+        minHeight: 44,
+      }),
+    );
+  });
+
   test('falls back to the next open booking day when the selected day becomes closed', async () => {
     const firstBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z'));
     const secondBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z')).map(
