@@ -47,3 +47,6 @@ yarn-error.*
 
 # local git worktrees
 .worktrees/
+
+# local assistant tooling
+.claude/
