@@ -35,6 +35,12 @@ import PasswordChecklist from '../components/PasswordChecklist';
 import ShopCatalogSection from '../components/shop/ShopCatalogSection';
 import { colors, radius } from '../theme';
 import {
+  buildBookingDates,
+  buildBookingMonthView,
+  createBookingSlotMap,
+  findEarliestOpenBookingDate,
+} from '../utils/bookingCalendar';
+import {
   getChangePasswordChecklistState,
   normalizeEmail,
   normalizePhoneNumber,
@@ -47,6 +53,7 @@ import {
 const BOTTOM_NAV_HEIGHT = 74;
 const DASHBOARD_WEB_SCROLL_HEIGHT = `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)`;
 const PRODUCT_BACK_BUTTON_TOP = 22;
+const BOOKING_WINDOW_DAYS = 30;
 
 const tabs = [
   { key: 'explore', label: 'Home', icon: 'home-outline' },
@@ -249,58 +256,6 @@ const bookingServices = [
     disabledLabel: 'By Schedule',
   },
 ];
-
-const bookingDates = [
-  { key: '2026-04-14', weekday: 'Mon', day: '14', month: 'Apr', fullLabel: 'Apr 14, 2026', isOpen: true },
-  { key: '2026-04-15', weekday: 'Tue', day: '15', month: 'Apr', fullLabel: 'Apr 15, 2026', isOpen: true },
-  { key: '2026-04-16', weekday: 'Wed', day: '16', month: 'Apr', fullLabel: 'Apr 16, 2026', isOpen: false },
-  { key: '2026-04-17', weekday: 'Thu', day: '17', month: 'Apr', fullLabel: 'Apr 17, 2026', isOpen: true },
-  { key: '2026-04-18', weekday: 'Fri', day: '18', month: 'Apr', fullLabel: 'Apr 18, 2026', isOpen: false },
-  { key: '2026-04-19', weekday: 'Sat', day: '19', month: 'Apr', fullLabel: 'Apr 19, 2026', isOpen: true },
-];
-
-const bookingTimeSlots = {
-  '2026-04-14': [
-    { key: '8:00 AM', label: '8:00 AM', available: false, reason: 'Full' },
-    { key: '9:00 AM', label: '9:00 AM', available: true },
-    { key: '10:00 AM', label: '10:00 AM', available: false, reason: 'Booked' },
-    { key: '11:00 AM', label: '11:00 AM', available: false, reason: 'Booked' },
-    { key: '1:00 PM', label: '1:00 PM', available: true },
-    { key: '2:00 PM', label: '2:00 PM', available: false, reason: 'Maxed' },
-    { key: '3:00 PM', label: '3:00 PM', available: false, reason: 'Maxed' },
-    { key: '4:00 PM', label: '4:00 PM', available: false, reason: 'Closed' },
-  ],
-  '2026-04-15': [
-    { key: '8:00 AM', label: '8:00 AM', available: true },
-    { key: '9:00 AM', label: '9:00 AM', available: true },
-    { key: '10:00 AM', label: '10:00 AM', available: true },
-    { key: '11:00 AM', label: '11:00 AM', available: false, reason: 'Booked' },
-    { key: '1:00 PM', label: '1:00 PM', available: true },
-    { key: '2:00 PM', label: '2:00 PM', available: true },
-    { key: '3:00 PM', label: '3:00 PM', available: false, reason: 'Maxed' },
-    { key: '4:00 PM', label: '4:00 PM', available: false, reason: 'Closed' },
-  ],
-  '2026-04-17': [
-    { key: '8:00 AM', label: '8:00 AM', available: false, reason: 'Full' },
-    { key: '9:00 AM', label: '9:00 AM', available: true },
-    { key: '10:00 AM', label: '10:00 AM', available: true },
-    { key: '11:00 AM', label: '11:00 AM', available: true },
-    { key: '1:00 PM', label: '1:00 PM', available: false, reason: 'Booked' },
-    { key: '2:00 PM', label: '2:00 PM', available: true },
-    { key: '3:00 PM', label: '3:00 PM', available: true },
-    { key: '4:00 PM', label: '4:00 PM', available: false, reason: 'Closed' },
-  ],
-  '2026-04-19': [
-    { key: '8:00 AM', label: '8:00 AM', available: false, reason: 'Closed' },
-    { key: '9:00 AM', label: '9:00 AM', available: true },
-    { key: '10:00 AM', label: '10:00 AM', available: true },
-    { key: '11:00 AM', label: '11:00 AM', available: true },
-    { key: '1:00 PM', label: '1:00 PM', available: true },
-    { key: '2:00 PM', label: '2:00 PM', available: false, reason: 'Maxed' },
-    { key: '3:00 PM', label: '3:00 PM', available: false, reason: 'Maxed' },
-    { key: '4:00 PM', label: '4:00 PM', available: false, reason: 'Closed' },
-  ],
-};
 
 const recentServiceHistory = [
   {
@@ -574,6 +529,20 @@ const getAccountInitials = (account) => {
   return initials || 'AC';
 };
 
+const getNextOpenBookingDateKey = (bookingDates, selectedDateKey) => {
+  if (!Array.isArray(bookingDates) || bookingDates.length === 0) {
+    return null;
+  }
+
+  const selectedDateIndex = bookingDates.findIndex((date) => date.key === selectedDateKey);
+  const searchOrder =
+    selectedDateIndex >= 0
+      ? [...bookingDates.slice(selectedDateIndex + 1), ...bookingDates.slice(0, selectedDateIndex)]
+      : bookingDates;
+
+  return searchOrder.find((date) => date?.isOpen)?.key || null;
+};
+
 function MotionPressable({
   children,
   onPress,
@@ -581,6 +550,7 @@ function MotionPressable({
   containerStyle,
   disabled = false,
   scaleTo = 0.97,
+  ...pressableProps
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(1)).current;
@@ -608,6 +578,7 @@ function MotionPressable({
       style={containerStyle}
       disabled={disabled}
       onPress={onPress}
+      {...pressableProps}
       onPressIn={() => {
         if (!disabled) {
           animateTo(scaleTo, 0.96);
@@ -1041,27 +1012,34 @@ function BookingServiceCard({ item, isSelected, onPress }) {
   );
 }
 
-function BookingDateCard({ item, isSelected, onPress }) {
+function BookingCalendarDay({ item, isSelected, onPress }) {
+  const isMuted = !item.isCurrentMonth || !item.isWindowDate;
+
   return (
     <MotionPressable
+      containerStyle={styles.bookingCalendarDayContainer}
       style={[
-        styles.bookingDateCard,
-        isSelected && styles.bookingDateCardActive,
-        !item.isOpen && styles.bookingDateCardDisabled,
+        styles.bookingCalendarDay,
+        isSelected && styles.bookingCalendarDayActive,
+        !item.isSelectable && styles.bookingCalendarDayDisabled,
+        isMuted && styles.bookingCalendarDayMuted,
       ]}
-      onPress={item.isOpen ? onPress : undefined}
-      disabled={!item.isOpen}
+      onPress={item.isSelectable ? onPress : undefined}
+      disabled={!item.isSelectable}
+      accessibilityRole="button"
+      accessibilityLabel={`Select ${item.fullLabel}`}
+      accessibilityState={{ selected: isSelected, disabled: !item.isSelectable }}
     >
-      <Text style={[styles.bookingDateWeekday, isSelected && styles.bookingDateTextActive, !item.isOpen && styles.bookingDisabledSubtext]}>
-        {item.weekday}
+      <Text
+        style={[
+          styles.bookingCalendarDayText,
+          isSelected && styles.bookingCalendarDayTextActive,
+          !item.isSelectable && styles.bookingCalendarDayTextDisabled,
+          isMuted && styles.bookingCalendarDayTextMuted,
+        ]}
+      >
+        {item.label}
       </Text>
-      <Text style={[styles.bookingDateDay, isSelected && styles.bookingDateTextActive, !item.isOpen && styles.bookingDisabledText]}>
-        {item.day}
-      </Text>
-      <Text style={[styles.bookingDateMonth, isSelected && styles.bookingDateTextActive, !item.isOpen && styles.bookingDisabledSubtext]}>
-        {item.month}
-      </Text>
-      {!item.isOpen ? <Text style={styles.bookingDateClosedLabel}>Off</Text> : null}
     </MotionPressable>
   );
 }
@@ -1077,6 +1055,9 @@ function BookingTimeSlot({ item, isSelected, onPress }) {
       ]}
       onPress={item.available ? onPress : undefined}
       disabled={!item.available}
+      accessibilityRole="button"
+      accessibilityLabel={`Select ${item.label} slot`}
+      accessibilityState={{ selected: isSelected, disabled: !item.available }}
     >
       <Text style={[styles.bookingTimeSlotText, isSelected && styles.bookingTimeSlotTextActive, !item.available && styles.bookingTimeSlotTextDisabled]}>
         {item.label}
@@ -1236,15 +1217,19 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   const isWeb = Platform.OS === 'web';
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
+  const bookingDayKey = new Date().toDateString();
+  const bookingAnchorDate = useMemo(() => new Date(), [bookingDayKey]);
+  const bookingDates = useMemo(() => buildBookingDates(bookingAnchorDate, BOOKING_WINDOW_DAYS), [bookingAnchorDate]);
+  const bookingTimeSlots = useMemo(() => createBookingSlotMap(bookingDates), [bookingDates]);
+  const initialBookingDateKey = useMemo(() => findEarliestOpenBookingDate(bookingDates) || null, [bookingDates]);
   const [activeTab, setActiveTab] = useState(route?.params?.initialTab || 'explore');
   const [menuScreen, setMenuScreen] = useState(route?.params?.initialMenuScreen || 'root');
   const [bookingMode, setBookingMode] = useState(route?.params?.bookingMode || 'book');
   const [selectedBookingServiceKey, setSelectedBookingServiceKey] = useState(
     bookingServices.find((service) => service.enabled)?.key || bookingServices[0].key
   );
-  const [selectedBookingDateKey, setSelectedBookingDateKey] = useState(
-    bookingDates.find((date) => date.isOpen)?.key || bookingDates[0].key
-  );
+  const [selectedBookingDateKey, setSelectedBookingDateKey] = useState(initialBookingDateKey);
+  const [visibleBookingMonthKey, setVisibleBookingMonthKey] = useState(bookingDates[0]?.monthKey || null);
   const [selectedBookingTimeKey, setSelectedBookingTimeKey] = useState(null);
   const [bookingNotes, setBookingNotes] = useState('');
   const [trackingBooking, setTrackingBooking] = useState(null);
@@ -1286,12 +1271,14 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     () => new Map(publishedShopProducts.map((product) => [product.key, product])),
     [publishedShopProducts]
   );
+  const selectedBookingDateSlots = bookingTimeSlots[selectedBookingDateKey] || [];
   const screenFadeAnim = useRef(new Animated.Value(1)).current;
   const screenTranslateAnim = useRef(new Animated.Value(0)).current;
   const cartOverlayAnim = useRef(new Animated.Value(0)).current;
   const productOverlayAnim = useRef(new Animated.Value(0)).current;
   const notificationPanelAnim = useRef(new Animated.Value(0)).current;
   const bottomNavIndicatorAnim = useRef(new Animated.Value(0)).current;
+  const visibleBookingMonth = buildBookingMonthView(bookingDates, visibleBookingMonthKey);
 
   useEffect(() => {
     setProfileForm(createProfileForm(account));
@@ -1396,13 +1383,40 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   }, [isNotificationsVisible, notificationPanelAnim]);
 
   useEffect(() => {
-    const slots = bookingTimeSlots[selectedBookingDateKey] || [];
-    const selectedSlot = slots.find((slot) => slot.key === selectedBookingTimeKey && slot.available);
+    const selectedDate = bookingDates.find((date) => date.key === selectedBookingDateKey) || null;
+
+    if (!selectedDate) {
+      if (initialBookingDateKey !== selectedBookingDateKey) {
+        setSelectedBookingDateKey(initialBookingDateKey);
+      }
+
+      return;
+    }
+
+    if (!selectedDate.isOpen) {
+      const nextOpenDateKey = getNextOpenBookingDateKey(bookingDates, selectedDate.key);
+
+      if (nextOpenDateKey !== selectedBookingDateKey) {
+        setSelectedBookingDateKey(nextOpenDateKey);
+      }
+    }
+  }, [bookingDates, initialBookingDateKey, selectedBookingDateKey]);
+
+  useEffect(() => {
+    const selectedDate = bookingDates.find((date) => date.key === selectedBookingDateKey) || null;
+
+    if (selectedDate?.monthKey && selectedDate.monthKey !== visibleBookingMonthKey) {
+      setVisibleBookingMonthKey(selectedDate.monthKey);
+    }
+  }, [selectedBookingDateKey]);
+
+  useEffect(() => {
+    const selectedSlot = selectedBookingDateSlots.find((slot) => slot.key === selectedBookingTimeKey && slot.available);
 
     if (!selectedSlot) {
-      setSelectedBookingTimeKey(slots.find((slot) => slot.available)?.key || null);
+      setSelectedBookingTimeKey(selectedBookingDateSlots.find((slot) => slot.available)?.key || null);
     }
-  }, [selectedBookingDateKey, selectedBookingTimeKey]);
+  }, [selectedBookingDateKey, selectedBookingDateSlots, selectedBookingTimeKey]);
 
   useEffect(() => {
     setIsNotificationsVisible(false);
@@ -1516,9 +1530,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   const handleConfirmBooking = () => {
     const selectedService = bookingServices.find((service) => service.key === selectedBookingServiceKey);
     const selectedDate = bookingDates.find((date) => date.key === selectedBookingDateKey);
-    const selectedTimeSlot = (bookingTimeSlots[selectedBookingDateKey] || []).find(
-      (slot) => slot.key === selectedBookingTimeKey
-    );
+    const selectedTimeSlot = selectedBookingDateSlots.find((slot) => slot.key === selectedBookingTimeKey);
 
     if (!selectedService || !selectedDate || !selectedTimeSlot || !selectedTimeSlot.available) {
       return;
@@ -2341,11 +2353,13 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   const renderBookingContent = () => {
     const selectedService = bookingServices.find((service) => service.key === selectedBookingServiceKey);
     const selectedDate = bookingDates.find((date) => date.key === selectedBookingDateKey);
-    const selectedDateSlots = bookingTimeSlots[selectedBookingDateKey] || [];
+    const availableDateSlots = selectedBookingDateSlots.filter((slot) => slot.available);
+    const hasAvailableDateSlots = availableDateSlots.length > 0;
+    const hasAnyBookingAvailability = Boolean(initialBookingDateKey);
     const isBookingReady =
       Boolean(selectedService?.enabled) &&
       Boolean(selectedDate?.isOpen) &&
-      selectedDateSlots.some((slot) => slot.key === selectedBookingTimeKey && slot.available);
+      selectedBookingDateSlots.some((slot) => slot.key === selectedBookingTimeKey && slot.available);
 
     const trackingSteps = trackingBooking
       ? trackingBooking.stage === 'scheduled'
@@ -2452,38 +2466,144 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
           ))}
 
           <Text style={styles.bookingSectionLabel}>Select Date</Text>
-          <ScrollView
-            horizontal
-            style={styles.bookingDateScroller}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.bookingDateRow}
-          >
-            {bookingDates.map((date) => (
-              <BookingDateCard
-                key={date.key}
-                item={date}
-                isSelected={selectedBookingDateKey === date.key}
-                onPress={() => setSelectedBookingDateKey(date.key)}
-              />
-            ))}
-          </ScrollView>
+          <View style={styles.bookingCalendarCard}>
+            <View style={styles.bookingCalendarHeader}>
+              <MotionPressable
+                style={[
+                  styles.bookingCalendarNavButton,
+                  !visibleBookingMonth.canGoPrev && styles.bookingCalendarNavButtonDisabled,
+                ]}
+                onPress={
+                  visibleBookingMonth.canGoPrev
+                    ? () => setVisibleBookingMonthKey(visibleBookingMonth.prevMonthKey)
+                    : undefined
+                }
+                disabled={!visibleBookingMonth.canGoPrev}
+                accessibilityRole="button"
+                accessibilityLabel="Go to previous booking month"
+              >
+                <MaterialCommunityIcons name="chevron-left" size={18} color={colors.text} />
+              </MotionPressable>
 
-          <Text style={styles.bookingSectionLabel}>Available Time Slots</Text>
-          <View style={styles.bookingTimeGrid}>
-            {selectedDate?.isOpen ? (
-              selectedDateSlots.map((slot) => (
-                <BookingTimeSlot
-                  key={slot.key}
-                  item={slot}
-                  isSelected={selectedBookingTimeKey === slot.key}
-                  onPress={() => setSelectedBookingTimeKey(slot.key)}
-                />
-              ))
+              <Text style={styles.bookingCalendarMonthLabel}>{visibleBookingMonth.label}</Text>
+
+              <MotionPressable
+                style={[
+                  styles.bookingCalendarNavButton,
+                  !visibleBookingMonth.canGoNext && styles.bookingCalendarNavButtonDisabled,
+                ]}
+                onPress={
+                  visibleBookingMonth.canGoNext
+                    ? () => setVisibleBookingMonthKey(visibleBookingMonth.nextMonthKey)
+                    : undefined
+                }
+                disabled={!visibleBookingMonth.canGoNext}
+                accessibilityRole="button"
+                accessibilityLabel="Go to next booking month"
+              >
+                <MaterialCommunityIcons name="chevron-right" size={18} color={colors.text} />
+              </MotionPressable>
+            </View>
+
+            <View style={styles.bookingCalendarWeekdays}>
+              {visibleBookingMonth.weekdayLabels.map((label) => (
+                <Text key={label} style={styles.bookingCalendarWeekdayLabel}>
+                  {label}
+                </Text>
+              ))}
+            </View>
+
+            {visibleBookingMonth.weeks.map((week, weekIndex) => (
+              <View key={`booking-week-${weekIndex}`} style={styles.bookingCalendarWeekRow}>
+                {week.map((day) => (
+                  <BookingCalendarDay
+                    key={day.key}
+                    item={day}
+                    isSelected={selectedBookingDateKey === day.key}
+                    onPress={() => setSelectedBookingDateKey(day.key)}
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.bookingSlotPanel}>
+            <View style={styles.bookingSlotPanelHeader}>
+              <View style={styles.bookingSlotPanelHeaderCopy}>
+                <Text style={styles.bookingSlotPanelEyebrow}>Available Time Slots</Text>
+                <Text style={styles.bookingSlotPanelTitle}>
+                  {selectedDate?.fullLabel || 'Choose a day'}
+                </Text>
+                <Text style={styles.bookingSlotPanelSubtitle}>
+                  {selectedDate?.isOpen
+                    ? hasAvailableDateSlots
+                      ? `${availableDateSlots.length} open slot${availableDateSlots.length === 1 ? '' : 's'}`
+                      : 'All slots are currently blocked'
+                    : 'The shop is closed for bookings'}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.bookingSlotStatusPill,
+                  selectedDate?.isOpen
+                    ? styles.bookingSlotStatusPillOpen
+                    : styles.bookingSlotStatusPillClosed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.bookingSlotStatusPillText,
+                    selectedDate?.isOpen
+                      ? styles.bookingSlotStatusPillTextOpen
+                      : styles.bookingSlotStatusPillTextClosed,
+                  ]}
+                >
+                  {selectedDate?.isOpen ? 'Open' : 'Unavailable'}
+                </Text>
+              </View>
+            </View>
+
+            {!hasAnyBookingAvailability ? (
+              <View style={styles.bookingSlotEmptyState}>
+                <View style={styles.bookingSlotEmptyIconWrap}>
+                  <MaterialCommunityIcons name="calendar-off-outline" size={24} color={colors.primary} />
+                </View>
+                <Text style={styles.bookingSlotEmptyTitle}>No booking dates are available</Text>
+                <Text style={styles.bookingSlotEmptyText}>
+                  The booking calendar is fully closed for the current 30-day window.
+                </Text>
+              </View>
+            ) : selectedDate?.isOpen ? (
+              hasAvailableDateSlots ? (
+                <View style={styles.bookingTimeGrid}>
+                  {selectedBookingDateSlots.map((slot) => (
+                    <BookingTimeSlot
+                      key={slot.key}
+                      item={slot}
+                      isSelected={selectedBookingTimeKey === slot.key}
+                      onPress={() => setSelectedBookingTimeKey(slot.key)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.bookingSlotEmptyState}>
+                  <View style={styles.bookingSlotEmptyIconWrap}>
+                    <MaterialCommunityIcons name="calendar-remove-outline" size={24} color={colors.primary} />
+                  </View>
+                  <Text style={styles.bookingSlotEmptyTitle}>No open slots left for this day</Text>
+                  <Text style={styles.bookingSlotEmptyText}>
+                    Try another date to keep the booking flow moving and unlock the confirm button.
+                  </Text>
+                </View>
+              )
             ) : (
-              <View style={styles.bookingInfoPanel}>
-                <Text style={styles.bookingInfoPanelTitle}>This day is unavailable</Text>
-                <Text style={styles.bookingInfoPanelText}>
-                  The admin can close dates like this from the web dashboard when the shop is not open.
+              <View style={styles.bookingSlotEmptyState}>
+                <View style={styles.bookingSlotEmptyIconWrap}>
+                  <MaterialCommunityIcons name="calendar-cancel-outline" size={24} color={colors.primary} />
+                </View>
+                <Text style={styles.bookingSlotEmptyTitle}>This day is unavailable</Text>
+                <Text style={styles.bookingSlotEmptyText}>
+                  The selected day stays highlighted, but the shop is closed for bookings.
                 </Text>
               </View>
             )}
@@ -4361,66 +4481,168 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
   },
-  bookingDateScroller: {
-    flexGrow: 0,
-    marginBottom: 22,
-  },
-  bookingDateRow: {
-    paddingRight: 12,
-  },
-  bookingDateCard: {
-    width: 68,
-    minHeight: 92,
-    borderRadius: 20,
-    backgroundColor: colors.surfaceStrong,
+  bookingCalendarCard: {
+    backgroundColor: '#151B27',
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
+    marginBottom: 22,
+  },
+  bookingCalendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  bookingCalendarNavButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    paddingVertical: 12,
   },
-  bookingDateCardActive: {
+  bookingCalendarNavButtonDisabled: {
+    opacity: 0.38,
+  },
+  bookingCalendarMonthLabel: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  bookingCalendarWeekdays: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  bookingCalendarWeekdayLabel: {
+    width: '14.28%',
+    color: colors.mutedText,
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  bookingCalendarWeekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  bookingCalendarDayContainer: {
+    width: '14.28%',
+    minHeight: 44,
+  },
+  bookingCalendarDay: {
+    minHeight: 44,
+    borderRadius: 16,
+    backgroundColor: '#1D2434',
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookingCalendarDayActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  bookingDateCardDisabled: {
-    backgroundColor: '#1B2030',
-    borderColor: colors.borderSoft,
+  bookingCalendarDayDisabled: {
+    backgroundColor: '#161B27',
+    borderColor: '#20283A',
   },
-  bookingDateWeekday: {
-    color: colors.labelText,
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 6,
+  bookingCalendarDayMuted: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
   },
-  bookingDateDay: {
+  bookingCalendarDayText: {
     color: colors.text,
-    fontSize: 29,
+    fontSize: 16,
     fontWeight: '800',
-    lineHeight: 30,
+    lineHeight: 18,
+    includeFontPadding: false,
   },
-  bookingDateMonth: {
-    color: colors.labelText,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 6,
-  },
-  bookingDateTextActive: {
+  bookingCalendarDayTextActive: {
     color: colors.onPrimary,
   },
-  bookingDateClosedLabel: {
-    color: '#666D89',
-    fontSize: 10,
-    fontWeight: '800',
-    marginTop: 6,
-    textTransform: 'uppercase',
+  bookingCalendarDayTextDisabled: {
+    color: '#6E7594',
+  },
+  bookingCalendarDayTextMuted: {
+    color: '#394158',
   },
   bookingTimeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 18,
+  },
+  bookingSlotPanel: {
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    marginBottom: 18,
+  },
+  bookingSlotPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    gap: 12,
+  },
+  bookingSlotPanelHeaderCopy: {
+    flex: 1,
+  },
+  bookingSlotPanelEyebrow: {
+    color: colors.mutedText,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  bookingSlotPanelTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  bookingSlotPanelSubtitle: {
+    color: colors.mutedText,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  bookingSlotStatusPill: {
+    minHeight: 30,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  bookingSlotStatusPillOpen: {
+    backgroundColor: 'rgba(36, 227, 122, 0.12)',
+    borderColor: 'rgba(36, 227, 122, 0.35)',
+  },
+  bookingSlotStatusPillClosed: {
+    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    borderColor: 'rgba(255, 107, 107, 0.32)',
+  },
+  bookingSlotStatusPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  bookingSlotStatusPillTextOpen: {
+    color: '#24E37A',
+  },
+  bookingSlotStatusPillTextClosed: {
+    color: colors.danger,
   },
   bookingTimeSlotContainer: {
     width: '48.6%',
@@ -4462,24 +4684,37 @@ const styles = StyleSheet.create({
     marginTop: 3,
     textTransform: 'uppercase',
   },
-  bookingInfoPanel: {
-    width: '100%',
-    backgroundColor: colors.surfaceStrong,
+  bookingSlotEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    padding: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
   },
-  bookingInfoPanelTitle: {
+  bookingSlotEmptyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 122, 0, 0.12)',
+    marginBottom: 12,
+  },
+  bookingSlotEmptyTitle: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     marginBottom: 6,
+    textAlign: 'center',
   },
-  bookingInfoPanelText: {
+  bookingSlotEmptyText: {
     color: colors.mutedText,
     fontSize: 14,
     lineHeight: 22,
+    textAlign: 'center',
   },
   bookingNotesCard: {
     backgroundColor: colors.surfaceStrong,
