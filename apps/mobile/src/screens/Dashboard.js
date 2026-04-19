@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
@@ -1134,9 +1134,11 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   const isWeb = Platform.OS === 'web';
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const bookingDates = buildBookingDates(new Date(), BOOKING_WINDOW_DAYS);
-  const bookingTimeSlots = createBookingSlotMap(bookingDates);
-  const initialBookingDateKey = findEarliestOpenBookingDate(bookingDates) || null;
+  const bookingDayKey = new Date().toDateString();
+  const bookingAnchorDate = useMemo(() => new Date(), [bookingDayKey]);
+  const bookingDates = useMemo(() => buildBookingDates(bookingAnchorDate, BOOKING_WINDOW_DAYS), [bookingAnchorDate]);
+  const bookingTimeSlots = useMemo(() => createBookingSlotMap(bookingDates), [bookingDates]);
+  const initialBookingDateKey = useMemo(() => findEarliestOpenBookingDate(bookingDates) || null, [bookingDates]);
   const [activeTab, setActiveTab] = useState(route?.params?.initialTab || 'explore');
   const [menuScreen, setMenuScreen] = useState(route?.params?.initialMenuScreen || 'root');
   const [bookingMode, setBookingMode] = useState(route?.params?.bookingMode || 'book');
@@ -1175,6 +1177,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     newPassword: false,
     confirmPassword: false,
   });
+  const selectedBookingDateSlots = bookingTimeSlots[selectedBookingDateKey] || [];
   const screenFadeAnim = useRef(new Animated.Value(1)).current;
   const screenTranslateAnim = useRef(new Animated.Value(0)).current;
   const cartOverlayAnim = useRef(new Animated.Value(0)).current;
@@ -1300,13 +1303,12 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   }, [selectedBookingDateKey]);
 
   useEffect(() => {
-    const slots = bookingTimeSlots[selectedBookingDateKey] || [];
-    const selectedSlot = slots.find((slot) => slot.key === selectedBookingTimeKey && slot.available);
+    const selectedSlot = selectedBookingDateSlots.find((slot) => slot.key === selectedBookingTimeKey && slot.available);
 
     if (!selectedSlot) {
-      setSelectedBookingTimeKey(slots.find((slot) => slot.available)?.key || null);
+      setSelectedBookingTimeKey(selectedBookingDateSlots.find((slot) => slot.available)?.key || null);
     }
-  }, [selectedBookingDateKey, selectedBookingTimeKey]);
+  }, [selectedBookingDateKey, selectedBookingDateSlots, selectedBookingTimeKey]);
 
   useEffect(() => {
     setIsNotificationsVisible(false);
@@ -1412,9 +1414,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   const handleConfirmBooking = () => {
     const selectedService = bookingServices.find((service) => service.key === selectedBookingServiceKey);
     const selectedDate = bookingDates.find((date) => date.key === selectedBookingDateKey);
-    const selectedTimeSlot = (bookingTimeSlots[selectedBookingDateKey] || []).find(
-      (slot) => slot.key === selectedBookingTimeKey
-    );
+    const selectedTimeSlot = selectedBookingDateSlots.find((slot) => slot.key === selectedBookingTimeKey);
 
     if (!selectedService || !selectedDate || !selectedTimeSlot || !selectedTimeSlot.available) {
       return;
@@ -2320,14 +2320,13 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   const renderBookingContent = () => {
     const selectedService = bookingServices.find((service) => service.key === selectedBookingServiceKey);
     const selectedDate = bookingDates.find((date) => date.key === selectedBookingDateKey);
-    const selectedDateSlots = bookingTimeSlots[selectedBookingDateKey] || [];
-    const availableDateSlots = selectedDateSlots.filter((slot) => slot.available);
+    const availableDateSlots = selectedBookingDateSlots.filter((slot) => slot.available);
     const hasAvailableDateSlots = availableDateSlots.length > 0;
     const hasAnyBookingAvailability = Boolean(initialBookingDateKey);
     const isBookingReady =
       Boolean(selectedService?.enabled) &&
       Boolean(selectedDate?.isOpen) &&
-      selectedDateSlots.some((slot) => slot.key === selectedBookingTimeKey && slot.available);
+      selectedBookingDateSlots.some((slot) => slot.key === selectedBookingTimeKey && slot.available);
 
     const trackingSteps = trackingBooking
       ? trackingBooking.stage === 'scheduled'
@@ -2544,7 +2543,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
             ) : selectedDate?.isOpen ? (
               hasAvailableDateSlots ? (
                 <View style={styles.bookingTimeGrid}>
-                  {selectedDateSlots.map((slot) => (
+                  {selectedBookingDateSlots.map((slot) => (
                     <BookingTimeSlot
                       key={slot.key}
                       item={slot}

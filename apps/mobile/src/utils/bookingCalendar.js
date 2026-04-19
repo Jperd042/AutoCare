@@ -19,26 +19,30 @@ const BOOKING_DAY_OPEN_CYCLE = 6;
 const BOOKING_DAY_CLOSED_OFFSET = 2;
 const BOOKING_SLOT_UNAVAILABLE_CYCLE = 4;
 
-function toUtcDate(dateLike) {
+function toLocalDate(dateLike) {
   const date = new Date(dateLike);
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function formatDateKey(date) {
-  return date.toISOString().slice(0, 10);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
 }
 
 function formatMonthKey(date) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function formatShortLabel(date) {
-  return `${MONTH_LABELS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
+  return `${MONTH_LABELS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
 function buildMonthDate(dateLike) {
-  const date = toUtcDate(dateLike);
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  const date = toLocalDate(dateLike);
+  return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
 function isValidMonthKey(monthKey) {
@@ -51,7 +55,7 @@ function getMonthKeyOffset(monthKey, monthOffset) {
   }
 
   const [year, month] = monthKey.split('-').map(Number);
-  const shifted = new Date(Date.UTC(year, month - 1 + monthOffset, 1));
+  const shifted = new Date(year, month - 1 + monthOffset, 1);
   return formatMonthKey(shifted);
 }
 
@@ -75,12 +79,12 @@ function createDateRecord(current, offset, isOpen) {
 
   return {
     key,
-    weekday: WEEKDAY_LABELS[current.getUTCDay()],
-    day: String(current.getUTCDate()),
-    month: MONTH_LABELS[current.getUTCMonth()],
+    weekday: WEEKDAY_LABELS[current.getDay()],
+    day: String(current.getDate()),
+    month: MONTH_LABELS[current.getMonth()],
     monthKey,
-    year: current.getUTCFullYear(),
-    monthIndex: current.getUTCMonth(),
+    year: current.getFullYear(),
+    monthIndex: current.getMonth(),
     fullLabel: formatShortLabel(current),
     isOpen,
     isSelectable: isOpen,
@@ -102,12 +106,12 @@ function getUnavailableSlotReason(slotIndex) {
 }
 
 export function buildBookingDates(startDate = new Date(), windowDays = 30) {
-  const origin = toUtcDate(startDate);
+  const origin = toLocalDate(startDate);
   const bookingDates = [];
 
   for (let offset = 0; offset < windowDays; offset += 1) {
     const current = new Date(origin);
-    current.setUTCDate(origin.getUTCDate() + offset);
+    current.setDate(origin.getDate() + offset);
 
     const isOpen = isBookingDayOpen(offset);
 
@@ -136,14 +140,14 @@ function createCalendarCell(current, bookingDate, viewMonthIndex) {
 
   return {
     key: formatDateKey(current),
-    label: String(current.getUTCDate()),
+    label: String(current.getDate()),
     fullLabel: formatShortLabel(current),
     isSelectable,
-    isCurrentMonth: current.getUTCMonth() === viewMonthIndex,
+    isCurrentMonth: current.getMonth() === viewMonthIndex,
     isWindowDate,
     monthKey: formatMonthKey(current),
-    year: current.getUTCFullYear(),
-    monthIndex: current.getUTCMonth(),
+    year: current.getFullYear(),
+    monthIndex: current.getMonth(),
     isOpen: Boolean(bookingDate?.isOpen),
   };
 }
@@ -163,11 +167,11 @@ export function buildBookingMonthView(bookingDatesOrOptions, maybeMonthKey) {
   const bookingDateRecords = bookingDates.filter((date) => date && typeof date.key === 'string');
 
   const monthStart = buildMonthDate(`${monthKey}-01`);
-  const monthEnd = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0));
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
   const gridStart = new Date(monthStart);
-  gridStart.setUTCDate(monthStart.getUTCDate() - monthStart.getUTCDay());
+  gridStart.setDate(monthStart.getDate() - monthStart.getDay());
   const gridEnd = new Date(monthEnd);
-  gridEnd.setUTCDate(monthEnd.getUTCDate() + (6 - monthEnd.getUTCDay()));
+  gridEnd.setDate(monthEnd.getDate() + (6 - monthEnd.getDay()));
   const bookingDatesByKey = new Map(bookingDateRecords.map((date) => [date.key, date]));
   const prevMonthKey = getMonthKeyOffset(monthKey, -1);
   const nextMonthKey = getMonthKeyOffset(monthKey, 1);
@@ -182,8 +186,8 @@ export function buildBookingMonthView(bookingDatesOrOptions, maybeMonthKey) {
 
     for (let index = 0; index < 7; index += 1) {
       const currentKey = formatDateKey(current);
-      week.push(createCalendarCell(new Date(current), bookingDatesByKey.get(currentKey), monthStart.getUTCMonth()));
-      current.setUTCDate(current.getUTCDate() + 1);
+      week.push(createCalendarCell(new Date(current), bookingDatesByKey.get(currentKey), monthStart.getMonth()));
+      current.setDate(current.getDate() + 1);
     }
 
     weeks.push(week);
@@ -191,8 +195,8 @@ export function buildBookingMonthView(bookingDatesOrOptions, maybeMonthKey) {
 
   return {
     monthKey,
-    label: `${LONG_MONTH_LABELS[monthStart.getUTCMonth()]} ${monthStart.getUTCFullYear()}`,
-    monthLabel: `${LONG_MONTH_LABELS[monthStart.getUTCMonth()]} ${monthStart.getUTCFullYear()}`,
+    label: `${LONG_MONTH_LABELS[monthStart.getMonth()]} ${monthStart.getFullYear()}`,
+    monthLabel: `${LONG_MONTH_LABELS[monthStart.getMonth()]} ${monthStart.getFullYear()}`,
     weekdayLabels,
     canGoPrev,
     canGoNext,

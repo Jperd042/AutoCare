@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { ScrollView, StyleSheet } from 'react-native';
 import Dashboard from '../Dashboard';
 import { createNavigation, createRoute, renderScreen } from '../../test/renderScreen';
@@ -155,7 +155,7 @@ describe('Dashboard', () => {
     expect(screen.getByLabelText('Select May 1, 2026')).toBeTruthy();
   });
 
-  test('falls back to the next open booking day when the selected day becomes closed', () => {
+  test('falls back to the next open booking day when the selected day becomes closed', async () => {
     const firstBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z'));
     const secondBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z')).map(
       (date) => ({
@@ -168,6 +168,10 @@ describe('Dashboard', () => {
     closedSelectedDate.isSelectable = false;
 
     const buildBookingDatesSpy = jest.spyOn(bookingCalendar, 'buildBookingDates');
+    const toDateStringSpy = jest
+      .spyOn(Date.prototype, 'toDateString')
+      .mockImplementationOnce(() => 'Mon Apr 19 2026')
+      .mockImplementationOnce(() => 'Tue Apr 20 2026');
     buildBookingDatesSpy.mockImplementation(() => firstBookingDates);
 
     const { rerender } = renderScreen(
@@ -183,7 +187,9 @@ describe('Dashboard', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Select Apr 19, 2026').props.accessibilityState.selected).toBe(true);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Select Apr 19, 2026').props.accessibilityState.selected).toBe(true);
+    });
 
     buildBookingDatesSpy.mockImplementation(() => secondBookingDates);
 
@@ -200,8 +206,51 @@ describe('Dashboard', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Select Apr 20, 2026').props.accessibilityState.selected).toBe(true);
-    expect(screen.getByLabelText('Select Apr 19, 2026').props.accessibilityState.selected).toBe(false);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Select Apr 20, 2026').props.accessibilityState.selected).toBe(true);
+      expect(screen.getByLabelText('Select Apr 19, 2026').props.accessibilityState.selected).toBe(false);
+    });
+
+    toDateStringSpy.mockRestore();
+  });
+
+  test('keeps the booking window stable across unrelated rerenders on the same day', () => {
+    const firstBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z'));
+    const secondBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-20T12:00:00.000Z'));
+    const buildBookingDatesSpy = jest.spyOn(bookingCalendar, 'buildBookingDates');
+
+    buildBookingDatesSpy.mockImplementationOnce(() => firstBookingDates).mockImplementationOnce(() => secondBookingDates);
+
+    const { rerender } = renderScreen(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Select Apr 19, 2026').props.accessibilityState.selected).toBe(true);
+
+    rerender(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Select Apr 19, 2026').props.accessibilityState.selected).toBe(true);
+    expect(buildBookingDatesSpy).toHaveBeenCalledTimes(1);
   });
 
   test('shows a dedicated empty state when the booking window has no open dates', () => {
@@ -228,7 +277,63 @@ describe('Dashboard', () => {
 
     expect(screen.getByText('No booking dates are available')).toBeTruthy();
     expect(screen.getByText('The booking calendar is fully closed for the current 30-day window.')).toBeTruthy();
-    expect(screen.getByText('Confirm Booking').parent.parent.props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByText('Confirm Booking').parent.parent).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ disabled: true }),
+    );
+  });
+
+  test('reselects an available slot when the selected date keeps the same key but slot availability changes', async () => {
+    const firstBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z'));
+    const secondBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z'));
+    const buildBookingDatesSpy = jest.spyOn(bookingCalendar, 'buildBookingDates');
+    const createBookingSlotMapSpy = jest.spyOn(bookingCalendar, 'createBookingSlotMap');
+
+    buildBookingDatesSpy.mockImplementation(() => firstBookingDates);
+    createBookingSlotMapSpy.mockImplementationOnce((dates) => actualBookingCalendar.createBookingSlotMap(dates));
+    createBookingSlotMapSpy.mockImplementationOnce((dates) => {
+      const slotMap = actualBookingCalendar.createBookingSlotMap(dates);
+
+      slotMap['2026-04-19'] = slotMap['2026-04-19'].map((slot) =>
+        slot.key === '10:00 AM'
+          ? { ...slot, available: true, reason: undefined }
+          : { ...slot, available: false, reason: 'Booked' },
+      );
+
+      return slotMap;
+    });
+
+    const { rerender } = renderScreen(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    buildBookingDatesSpy.mockImplementation(() => secondBookingDates);
+
+    rerender(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Select 10:00 AM slot').props.accessibilityState.selected).toBe(true);
+    });
   });
 
   test('resets the selected slot when the user switches to another date', () => {

@@ -170,4 +170,81 @@ describe('bookingCalendar helper', () => {
       reason: 'Maxed',
     });
   });
+
+  test('uses local calendar dates instead of UTC slicing for booking keys', () => {
+    const toISOStringSpy = jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function mockToISOString() {
+      const year = this.getFullYear();
+      const month = String(this.getMonth() + 1).padStart(2, '0');
+      const day = String(this.getDate() + 1).padStart(2, '0');
+      return `${year}-${month}-${day}T00:00:00.000Z`;
+    });
+
+    try {
+      const dates = buildBookingDates(new Date('2026-04-19T08:00:00.000Z'), 2);
+
+      expect(dates[0]).toMatchObject({
+        key: '2026-04-19',
+        day: '19',
+        weekday: 'Sun',
+        fullLabel: 'Apr 19, 2026',
+      });
+      expect(dates[1]).toMatchObject({
+        key: '2026-04-20',
+        day: '20',
+        fullLabel: 'Apr 20, 2026',
+      });
+    } finally {
+      toISOStringSpy.mockRestore();
+    }
+  });
+
+  test('uses local labels when building month view cells', () => {
+    const getUTCDateSpy = jest.spyOn(Date.prototype, 'getUTCDate').mockImplementation(function mockGetUTCDate() {
+      return this.getDate() + 1;
+    });
+    const getUTCMonthSpy = jest.spyOn(Date.prototype, 'getUTCMonth').mockImplementation(function mockGetUTCMonth() {
+      return this.getMonth();
+    });
+    const getUTCFullYearSpy = jest
+      .spyOn(Date.prototype, 'getUTCFullYear')
+      .mockImplementation(function mockGetUTCFullYear() {
+        return this.getFullYear();
+      });
+    const getUTCDaySpy = jest.spyOn(Date.prototype, 'getUTCDay').mockImplementation(function mockGetUTCDay() {
+      return this.getDay() + 1;
+    });
+    const toISOStringSpy = jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function mockToISOString() {
+      const year = this.getFullYear();
+      const month = String(this.getMonth() + 1).padStart(2, '0');
+      const day = String(this.getDate() + 1).padStart(2, '0');
+      return `${year}-${month}-${day}T00:00:00.000Z`;
+    });
+
+    try {
+      const monthView = buildBookingMonthView(
+        [
+          {
+            key: '2026-04-19',
+            isOpen: true,
+            isSelectable: true,
+            monthKey: '2026-04',
+            windowIndex: 0,
+          },
+        ],
+        '2026-04',
+      );
+
+      expect(monthView.label).toBe('April 2026');
+      expect(monthView.weeks.flat().find((cell) => cell.key === '2026-04-19')).toMatchObject({
+        fullLabel: 'Apr 19, 2026',
+        isCurrentMonth: true,
+      });
+    } finally {
+      getUTCDateSpy.mockRestore();
+      getUTCMonthSpy.mockRestore();
+      getUTCFullYearSpy.mockRestore();
+      getUTCDaySpy.mockRestore();
+      toISOStringSpy.mockRestore();
+    }
+  });
 });
