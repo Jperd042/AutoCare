@@ -447,6 +447,20 @@ const getAccountInitials = (account) => {
   return initials || 'AC';
 };
 
+const getNextOpenBookingDateKey = (bookingDates, selectedDateKey) => {
+  if (!Array.isArray(bookingDates) || bookingDates.length === 0) {
+    return null;
+  }
+
+  const selectedDateIndex = bookingDates.findIndex((date) => date.key === selectedDateKey);
+  const searchOrder =
+    selectedDateIndex >= 0
+      ? [...bookingDates.slice(selectedDateIndex + 1), ...bookingDates.slice(0, selectedDateIndex)]
+      : bookingDates;
+
+  return searchOrder.find((date) => date?.isOpen)?.key || null;
+};
+
 function MotionPressable({
   children,
   onPress,
@@ -1122,7 +1136,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   const { width: windowWidth } = useWindowDimensions();
   const bookingDates = buildBookingDates(new Date(), BOOKING_WINDOW_DAYS);
   const bookingTimeSlots = createBookingSlotMap(bookingDates);
-  const initialBookingDateKey = findEarliestOpenBookingDate(bookingDates) || bookingDates[0]?.key || null;
+  const initialBookingDateKey = findEarliestOpenBookingDate(bookingDates) || null;
   const [activeTab, setActiveTab] = useState(route?.params?.initialTab || 'explore');
   const [menuScreen, setMenuScreen] = useState(route?.params?.initialMenuScreen || 'root');
   const [bookingMode, setBookingMode] = useState(route?.params?.bookingMode || 'book');
@@ -1258,10 +1272,22 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   }, [isNotificationsVisible, notificationPanelAnim]);
 
   useEffect(() => {
-    const hasSelectedDate = bookingDates.some((date) => date.key === selectedBookingDateKey);
+    const selectedDate = bookingDates.find((date) => date.key === selectedBookingDateKey) || null;
 
-    if (!hasSelectedDate && initialBookingDateKey && initialBookingDateKey !== selectedBookingDateKey) {
-      setSelectedBookingDateKey(initialBookingDateKey);
+    if (!selectedDate) {
+      if (initialBookingDateKey !== selectedBookingDateKey) {
+        setSelectedBookingDateKey(initialBookingDateKey);
+      }
+
+      return;
+    }
+
+    if (!selectedDate.isOpen) {
+      const nextOpenDateKey = getNextOpenBookingDateKey(bookingDates, selectedDate.key);
+
+      if (nextOpenDateKey !== selectedBookingDateKey) {
+        setSelectedBookingDateKey(nextOpenDateKey);
+      }
     }
   }, [bookingDates, initialBookingDateKey, selectedBookingDateKey]);
 
@@ -2297,6 +2323,7 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     const selectedDateSlots = bookingTimeSlots[selectedBookingDateKey] || [];
     const availableDateSlots = selectedDateSlots.filter((slot) => slot.available);
     const hasAvailableDateSlots = availableDateSlots.length > 0;
+    const hasAnyBookingAvailability = Boolean(initialBookingDateKey);
     const isBookingReady =
       Boolean(selectedService?.enabled) &&
       Boolean(selectedDate?.isOpen) &&
@@ -2504,7 +2531,17 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
               </View>
             </View>
 
-            {selectedDate?.isOpen ? (
+            {!hasAnyBookingAvailability ? (
+              <View style={styles.bookingSlotEmptyState}>
+                <View style={styles.bookingSlotEmptyIconWrap}>
+                  <MaterialCommunityIcons name="calendar-off-outline" size={24} color={colors.primary} />
+                </View>
+                <Text style={styles.bookingSlotEmptyTitle}>No booking dates are available</Text>
+                <Text style={styles.bookingSlotEmptyText}>
+                  The booking calendar is fully closed for the current 30-day window.
+                </Text>
+              </View>
+            ) : selectedDate?.isOpen ? (
               hasAvailableDateSlots ? (
                 <View style={styles.bookingTimeGrid}>
                   {selectedDateSlots.map((slot) => (

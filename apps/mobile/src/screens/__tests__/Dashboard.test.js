@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 import Dashboard from '../Dashboard';
 import { createNavigation, createRoute, renderScreen } from '../../test/renderScreen';
 import * as bookingCalendar from '../../utils/bookingCalendar';
+const actualBookingCalendar = jest.requireActual('../../utils/bookingCalendar');
 
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
@@ -154,36 +155,22 @@ describe('Dashboard', () => {
     expect(screen.getByLabelText('Select May 1, 2026')).toBeTruthy();
   });
 
-  test('keeps a closed booking day selected and shows the unavailable-day state', () => {
-    jest.spyOn(bookingCalendar, 'findEarliestOpenBookingDate').mockReturnValue('2026-04-21');
-
-    renderScreen(
-      <Dashboard
-        account={account}
-        navigation={createNavigation()}
-        route={createRoute({
-          initialTab: 'notifications',
-          bookingMode: 'book',
-        })}
-        onSignOut={jest.fn()}
-        onSaveProfile={jest.fn()}
-      />,
+  test('falls back to the next open booking day when the selected day becomes closed', () => {
+    const firstBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z'));
+    const secondBookingDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z')).map(
+      (date) => ({
+        ...date,
+      }),
     );
+    const closedSelectedDate = secondBookingDates.find((date) => date.key === '2026-04-19');
 
-    expect(screen.getByLabelText('Select Apr 21, 2026').props.accessibilityState.selected).toBe(true);
-    expect(screen.getByText('This day is unavailable')).toBeTruthy();
-    expect(screen.queryByLabelText('Select 8:00 AM slot')).toBeNull();
-  });
+    closedSelectedDate.isOpen = false;
+    closedSelectedDate.isSelectable = false;
 
-  test('shows an empty-state panel when the selected day has no open slots', () => {
-    jest.spyOn(bookingCalendar, 'createBookingSlotMap').mockImplementation((dates) => {
-      return dates.reduce((slotMap, date) => {
-        slotMap[date.key] = [];
-        return slotMap;
-      }, {});
-    });
+    const buildBookingDatesSpy = jest.spyOn(bookingCalendar, 'buildBookingDates');
+    buildBookingDatesSpy.mockImplementation(() => firstBookingDates);
 
-    renderScreen(
+    const { rerender } = renderScreen(
       <Dashboard
         account={account}
         navigation={createNavigation()}
@@ -197,8 +184,51 @@ describe('Dashboard', () => {
     );
 
     expect(screen.getByLabelText('Select Apr 19, 2026').props.accessibilityState.selected).toBe(true);
-    expect(screen.getByText('No open slots left for this day')).toBeTruthy();
-    expect(screen.queryByLabelText('Select 8:00 AM slot')).toBeNull();
+
+    buildBookingDatesSpy.mockImplementation(() => secondBookingDates);
+
+    rerender(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Select Apr 20, 2026').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Select Apr 19, 2026').props.accessibilityState.selected).toBe(false);
+  });
+
+  test('shows a dedicated empty state when the booking window has no open dates', () => {
+    const closedDates = actualBookingCalendar.buildBookingDates(new Date('2026-04-19T12:00:00.000Z')).map((date) => ({
+      ...date,
+      isOpen: false,
+      isSelectable: false,
+    }));
+
+    jest.spyOn(bookingCalendar, 'buildBookingDates').mockReturnValue(closedDates);
+
+    renderScreen(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('No booking dates are available')).toBeTruthy();
+    expect(screen.getByText('The booking calendar is fully closed for the current 30-day window.')).toBeTruthy();
+    expect(screen.getByText('Confirm Booking').parent.parent.props.accessibilityState.disabled).toBe(true);
   });
 
   test('resets the selected slot when the user switches to another date', () => {
