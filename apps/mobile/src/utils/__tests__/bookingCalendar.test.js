@@ -247,4 +247,45 @@ describe('bookingCalendar helper', () => {
       toISOStringSpy.mockRestore();
     }
   });
+
+  test('keeps buildBookingMonthView on the requested month even when bare ISO parsing drifts backward', () => {
+    const OriginalDate = Date;
+
+    function MockDate(...args) {
+      if (!(this instanceof MockDate)) {
+        return OriginalDate(...args);
+      }
+
+      if (args.length === 1 && args[0] === '2026-04-01') {
+        const shifted = new OriginalDate(2026, 2, 31, 12, 0, 0, 0);
+        Object.setPrototypeOf(shifted, MockDate.prototype);
+        return shifted;
+      }
+
+      const instance = new OriginalDate(...args);
+      Object.setPrototypeOf(instance, MockDate.prototype);
+      return instance;
+    }
+
+    MockDate.now = OriginalDate.now.bind(OriginalDate);
+    MockDate.parse = OriginalDate.parse.bind(OriginalDate);
+    MockDate.UTC = OriginalDate.UTC.bind(OriginalDate);
+    MockDate.prototype = OriginalDate.prototype;
+    Object.setPrototypeOf(MockDate, OriginalDate);
+
+    global.Date = MockDate;
+
+    try {
+      const dates = buildBookingDates(new OriginalDate(2026, 3, 19, 12, 0, 0, 0));
+      const monthView = buildBookingMonthView(dates, '2026-04');
+
+      expect(monthView.label).toBe('April 2026');
+      expect(monthView.weeks.flat().find((cell) => cell.key === '2026-04-01')).toMatchObject({
+        fullLabel: 'Apr 1, 2026',
+        isCurrentMonth: true,
+      });
+    } finally {
+      global.Date = OriginalDate;
+    }
+  });
 });

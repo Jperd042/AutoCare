@@ -41,6 +41,14 @@ function formatShortLabel(date) {
 }
 
 function buildMonthDate(dateLike) {
+  if (typeof dateLike === 'string') {
+    const match = /^(\d{4})-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?$/.exec(dateLike);
+    if (match) {
+      const [, year, month] = match;
+      return new Date(Number(year), Number(month) - 1, 1);
+    }
+  }
+
   const date = toLocalDate(dateLike);
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
