@@ -1258,14 +1258,12 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
   }, [isNotificationsVisible, notificationPanelAnim]);
 
   useEffect(() => {
-    const nextDateKey = bookingDates.some((date) => date.key === selectedBookingDateKey && date.isOpen)
-      ? selectedBookingDateKey
-      : findEarliestOpenBookingDate(bookingDates);
+    const hasSelectedDate = bookingDates.some((date) => date.key === selectedBookingDateKey);
 
-    if (nextDateKey && nextDateKey !== selectedBookingDateKey) {
-      setSelectedBookingDateKey(nextDateKey);
+    if (!hasSelectedDate && initialBookingDateKey && initialBookingDateKey !== selectedBookingDateKey) {
+      setSelectedBookingDateKey(initialBookingDateKey);
     }
-  }, [selectedBookingDateKey]);
+  }, [bookingDates, initialBookingDateKey, selectedBookingDateKey]);
 
   useEffect(() => {
     const selectedDate = bookingDates.find((date) => date.key === selectedBookingDateKey) || null;
@@ -2297,6 +2295,8 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
     const selectedService = bookingServices.find((service) => service.key === selectedBookingServiceKey);
     const selectedDate = bookingDates.find((date) => date.key === selectedBookingDateKey);
     const selectedDateSlots = bookingTimeSlots[selectedBookingDateKey] || [];
+    const availableDateSlots = selectedDateSlots.filter((slot) => slot.available);
+    const hasAvailableDateSlots = availableDateSlots.length > 0;
     const isBookingReady =
       Boolean(selectedService?.enabled) &&
       Boolean(selectedDate?.isOpen) &&
@@ -2468,22 +2468,73 @@ export default function Dashboard({ account, navigation, route, onSignOut, onSav
             ))}
           </View>
 
-          <Text style={styles.bookingSectionLabel}>Available Time Slots</Text>
-          <View style={styles.bookingTimeGrid}>
+          <View style={styles.bookingSlotPanel}>
+            <View style={styles.bookingSlotPanelHeader}>
+              <View style={styles.bookingSlotPanelHeaderCopy}>
+                <Text style={styles.bookingSlotPanelEyebrow}>Available Time Slots</Text>
+                <Text style={styles.bookingSlotPanelTitle}>
+                  {selectedDate?.fullLabel || 'Choose a day'}
+                </Text>
+                <Text style={styles.bookingSlotPanelSubtitle}>
+                  {selectedDate?.isOpen
+                    ? hasAvailableDateSlots
+                      ? `${availableDateSlots.length} open slot${availableDateSlots.length === 1 ? '' : 's'}`
+                      : 'All slots are currently blocked'
+                    : 'The shop is closed for bookings'}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.bookingSlotStatusPill,
+                  selectedDate?.isOpen
+                    ? styles.bookingSlotStatusPillOpen
+                    : styles.bookingSlotStatusPillClosed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.bookingSlotStatusPillText,
+                    selectedDate?.isOpen
+                      ? styles.bookingSlotStatusPillTextOpen
+                      : styles.bookingSlotStatusPillTextClosed,
+                  ]}
+                >
+                  {selectedDate?.isOpen ? 'Open' : 'Unavailable'}
+                </Text>
+              </View>
+            </View>
+
             {selectedDate?.isOpen ? (
-              selectedDateSlots.map((slot) => (
-                <BookingTimeSlot
-                  key={slot.key}
-                  item={slot}
-                  isSelected={selectedBookingTimeKey === slot.key}
-                  onPress={() => setSelectedBookingTimeKey(slot.key)}
-                />
-              ))
+              hasAvailableDateSlots ? (
+                <View style={styles.bookingTimeGrid}>
+                  {selectedDateSlots.map((slot) => (
+                    <BookingTimeSlot
+                      key={slot.key}
+                      item={slot}
+                      isSelected={selectedBookingTimeKey === slot.key}
+                      onPress={() => setSelectedBookingTimeKey(slot.key)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.bookingSlotEmptyState}>
+                  <View style={styles.bookingSlotEmptyIconWrap}>
+                    <MaterialCommunityIcons name="calendar-remove-outline" size={24} color={colors.primary} />
+                  </View>
+                  <Text style={styles.bookingSlotEmptyTitle}>No open slots left for this day</Text>
+                  <Text style={styles.bookingSlotEmptyText}>
+                    Try another date to keep the booking flow moving and unlock the confirm button.
+                  </Text>
+                </View>
+              )
             ) : (
-              <View style={styles.bookingInfoPanel}>
-                <Text style={styles.bookingInfoPanelTitle}>This day is unavailable</Text>
-                <Text style={styles.bookingInfoPanelText}>
-                  The admin can close dates like this from the web dashboard when the shop is not open.
+              <View style={styles.bookingSlotEmptyState}>
+                <View style={styles.bookingSlotEmptyIconWrap}>
+                  <MaterialCommunityIcons name="calendar-cancel-outline" size={24} color={colors.primary} />
+                </View>
+                <Text style={styles.bookingSlotEmptyTitle}>This day is unavailable</Text>
+                <Text style={styles.bookingSlotEmptyText}>
+                  The selected day stays highlighted, but the shop is closed for bookings.
                 </Text>
               </View>
             )}
@@ -4454,6 +4505,71 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 18,
   },
+  bookingSlotPanel: {
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    marginBottom: 18,
+  },
+  bookingSlotPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    gap: 12,
+  },
+  bookingSlotPanelHeaderCopy: {
+    flex: 1,
+  },
+  bookingSlotPanelEyebrow: {
+    color: colors.mutedText,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  bookingSlotPanelTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  bookingSlotPanelSubtitle: {
+    color: colors.mutedText,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  bookingSlotStatusPill: {
+    minHeight: 30,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  bookingSlotStatusPillOpen: {
+    backgroundColor: 'rgba(36, 227, 122, 0.12)',
+    borderColor: 'rgba(36, 227, 122, 0.35)',
+  },
+  bookingSlotStatusPillClosed: {
+    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    borderColor: 'rgba(255, 107, 107, 0.32)',
+  },
+  bookingSlotStatusPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  bookingSlotStatusPillTextOpen: {
+    color: '#24E37A',
+  },
+  bookingSlotStatusPillTextClosed: {
+    color: colors.danger,
+  },
   bookingTimeSlotContainer: {
     width: '48.6%',
   },
@@ -4494,24 +4610,37 @@ const styles = StyleSheet.create({
     marginTop: 3,
     textTransform: 'uppercase',
   },
-  bookingInfoPanel: {
-    width: '100%',
-    backgroundColor: colors.surfaceStrong,
+  bookingSlotEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    padding: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
   },
-  bookingInfoPanelTitle: {
+  bookingSlotEmptyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 122, 0, 0.12)',
+    marginBottom: 12,
+  },
+  bookingSlotEmptyTitle: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     marginBottom: 6,
+    textAlign: 'center',
   },
-  bookingInfoPanelText: {
+  bookingSlotEmptyText: {
     color: colors.mutedText,
     fontSize: 14,
     lineHeight: 22,
+    textAlign: 'center',
   },
   bookingNotesCard: {
     backgroundColor: colors.surfaceStrong,

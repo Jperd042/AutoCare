@@ -2,6 +2,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { ScrollView, StyleSheet } from 'react-native';
 import Dashboard from '../Dashboard';
 import { createNavigation, createRoute, renderScreen } from '../../test/renderScreen';
+import * as bookingCalendar from '../../utils/bookingCalendar';
 
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
@@ -37,6 +38,7 @@ describe('Dashboard', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
@@ -152,6 +154,53 @@ describe('Dashboard', () => {
     expect(screen.getByLabelText('Select May 1, 2026')).toBeTruthy();
   });
 
+  test('keeps a closed booking day selected and shows the unavailable-day state', () => {
+    jest.spyOn(bookingCalendar, 'findEarliestOpenBookingDate').mockReturnValue('2026-04-21');
+
+    renderScreen(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Select Apr 21, 2026').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByText('This day is unavailable')).toBeTruthy();
+    expect(screen.queryByLabelText('Select 8:00 AM slot')).toBeNull();
+  });
+
+  test('shows an empty-state panel when the selected day has no open slots', () => {
+    jest.spyOn(bookingCalendar, 'createBookingSlotMap').mockImplementation((dates) => {
+      return dates.reduce((slotMap, date) => {
+        slotMap[date.key] = [];
+        return slotMap;
+      }, {});
+    });
+
+    renderScreen(
+      <Dashboard
+        account={account}
+        navigation={createNavigation()}
+        route={createRoute({
+          initialTab: 'notifications',
+          bookingMode: 'book',
+        })}
+        onSignOut={jest.fn()}
+        onSaveProfile={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Select Apr 19, 2026').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByText('No open slots left for this day')).toBeTruthy();
+    expect(screen.queryByLabelText('Select 8:00 AM slot')).toBeNull();
+  });
+
   test('resets the selected slot when the user switches to another date', () => {
     renderScreen(
       <Dashboard
@@ -173,5 +222,6 @@ describe('Dashboard', () => {
     fireEvent.press(screen.getByLabelText('Select Apr 29, 2026'));
 
     expect(screen.getByLabelText('Select 10:00 AM slot').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText('Select 8:00 AM slot').props.accessibilityState.selected).toBe(true);
   });
 });
